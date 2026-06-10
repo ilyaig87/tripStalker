@@ -43,6 +43,8 @@ class TrackOut(BaseModel):
     alt_check_in: date | None = None
     alt_check_out: date | None = None
     alt_url: str | None = None
+    hotel_portion: Decimal | None = None
+    flight_portion: Decimal | None = None
     created_at: datetime
 
 

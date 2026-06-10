@@ -546,6 +546,12 @@ body::before {
   font-weight: 600;
   color: var(--ink-soft);
 }
+.breakdown {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
 .checked-at {
   margin-top: 0.3rem;
   font-size: 0.78rem;

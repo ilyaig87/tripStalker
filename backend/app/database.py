@@ -53,6 +53,8 @@ _ADDED_COLUMNS = {
     "alt_check_in": {"sqlite": "DATE", "postgresql": "DATE"},
     "alt_check_out": {"sqlite": "DATE", "postgresql": "DATE"},
     "alt_url": {"sqlite": "VARCHAR(1000)", "postgresql": "VARCHAR(1000)"},
+    "hotel_portion": {"sqlite": "NUMERIC(12,2)", "postgresql": "NUMERIC(12,2)"},
+    "flight_portion": {"sqlite": "NUMERIC(12,2)", "postgresql": "NUMERIC(12,2)"},
 }
 
 

@@ -94,24 +94,32 @@ class HolidayFinderAdapter(BaseProviderAdapter):
                 "(offer may be sold out or the API shape changed)"
             )
 
-        # The base total_price always uses the "naked" (no-luggage) flight. If the
-        # user selected a luggage tier in their link, add the difference between
-        # that tier and the naked flight (both `price_with_markup_all_pax`, USD).
+        # The base total_price always uses the "naked" (no-luggage) flight. We also
+        # use the flight rate options to (a) add the user's luggage tier and (b)
+        # break the package into hotel vs flight: the flight = the chosen tier's
+        # `price_with_markup_all_pax` (USD, all pax); the hotel = total − naked flight.
+        group = next(iter((rate.get("flightRateOptions") or {}).values()), {})
+        naked = (group.get("naked") or {}).get("price_with_markup_all_pax")
         luggage_added = 0
         if luggage_tier in {"withTrolley", "withCib", "withBoth"}:
-            group = next(iter((rate.get("flightRateOptions") or {}).values()), {})
-            naked = (group.get("naked") or {}).get("price_with_markup_all_pax")
             chosen = (group.get(luggage_tier) or {}).get("price_with_markup_all_pax")
             if isinstance(naked, (int, float)) and isinstance(chosen, (int, float)):
                 luggage_added = chosen - naked
 
         final = total + luggage_added
+        hotel_portion = flight_portion = None
+        if isinstance(naked, (int, float)):
+            hotel_portion = Decimal(str(total - naked)).quantize(Decimal("1.00"))
+            flight_portion = Decimal(str(naked + luggage_added)).quantize(Decimal("1.00"))
+
         per_pax = rate_include.get("total_price_per_pax")
         hotel = (rate.get("hotel") or {}).get("name") or f"HolidayFinder offer #{parsed.target_hotel_id_or_name}"
         return PriceResult(
             price=Decimal(str(final)).quantize(Decimal("1.00")),
             currency="USD",  # the site quotes packages in USD
             hotel_name=hotel,
+            hotel_portion=hotel_portion,
+            flight_portion=flight_portion,
             raw={
                 "base_total_price": total,
                 "luggage_tier": luggage_tier,

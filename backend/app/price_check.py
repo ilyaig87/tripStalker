@@ -61,6 +61,10 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
         item.failed_checks = 0
         item.last_error = None
 
+    # Refresh the package breakdown (hotel vs flight) if the adapter provides it.
+    item.hotel_portion = result.hotel_portion
+    item.flight_portion = result.flight_portion
+
     baseline: Decimal = item.current_price or item.initial_price or result.price
     record_price(db, item, result.price)
     logger.info("Track %s: %s -> %s %s", item.id, baseline, result.price, result.currency)

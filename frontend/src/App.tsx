@@ -395,6 +395,11 @@ export default function App() {
                       {perPax && <>{perPax} לאדם · </>}
                       <span className="price-reg">נרשם ב-{money(t.initial_price, t.currency)}</span>
                     </div>
+                    {t.hotel_portion && t.flight_portion && (
+                      <div className="breakdown tnum">
+                        🏨 מלון {money(t.hotel_portion, t.currency)} · ✈️ טיסה {money(t.flight_portion, t.currency)}
+                      </div>
+                    )}
                     <div className="checked-at">🕐 {lastChecked(t.last_checked_at)}</div>
                   </div>
 

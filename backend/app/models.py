@@ -65,6 +65,10 @@ class TrackedItem(Base):
     current_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(String(3), default="USD")
 
+    # Package breakdown (hotel vs flight), when the provider exposes it
+    hotel_portion: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    flight_portion: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+
     status: Mapped[TrackStatus] = mapped_column(default=TrackStatus.ACTIVE, index=True)
 
     # Availability — flips to False after repeated failed price fetches
