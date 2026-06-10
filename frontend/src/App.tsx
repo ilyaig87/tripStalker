@@ -34,6 +34,12 @@ function money(value: string | null, currency: string) {
   return `${sym(currency)}${Number(value).toLocaleString()}`;
 }
 
+// "≈ ₪14,200" — shekel equivalent of a USD price (null if not applicable)
+function ilsApprox(value: string | null, currency: string, rate: number | null) {
+  if (value === null || currency !== "USD" || !rate) return null;
+  return `≈ ₪${Math.round(Number(value) * rate).toLocaleString()}`;
+}
+
 // "2026-09-15" -> "15.09"
 function dm(iso: string | null) {
   if (!iso) return "?";
@@ -123,11 +129,20 @@ export default function App() {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<string>(() => localStorage.getItem("ts_theme") || "beach");
+  const [usdIls, setUsdIls] = useState<number | null>(null);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("ts_theme", theme);
   }, [theme]);
+
+  // Live USD→ILS rate (free, no key) so we can show ₪ alongside $ prices.
+  useEffect(() => {
+    fetch("https://open.er-api.com/v6/latest/USD")
+      .then((r) => r.json())
+      .then((d) => d?.rates?.ILS && setUsdIls(d.rates.ILS))
+      .catch(() => {});
+  }, []);
 
   async function refresh(forEmail: string) {
     if (!forEmail) return;
@@ -359,6 +374,9 @@ export default function App() {
                         <span className="delta delta--flat">ללא שינוי</span>
                       )}
                     </div>
+                    {ilsApprox(t.current_price, t.currency, usdIls) && (
+                      <div className="ils-approx tnum">{ilsApprox(t.current_price, t.currency, usdIls)}</div>
+                    )}
                     <div className="price-sub tnum">
                       {perPax && <>{perPax} לאדם · </>}
                       <span className="price-reg">נרשם ב-{money(t.initial_price, t.currency)}</span>

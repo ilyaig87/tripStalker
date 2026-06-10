@@ -540,6 +540,12 @@ body::before {
 .price-reg {
   color: var(--ink-faint);
 }
+.ils-approx {
+  margin-top: 0.2rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
 .checked-at {
   margin-top: 0.3rem;
   font-size: 0.78rem;
