@@ -50,3 +50,10 @@ export function listTracks(email: string): Promise<Track[]> {
 export function deleteTrack(id: number): Promise<void> {
   return fetch(`${BASE}/api/track/${id}`, { method: "DELETE" }).then((r) => handle<void>(r));
 }
+
+// Re-check all of a user's tracks right now; returns the freshly updated list.
+export function refreshTracks(email: string): Promise<Track[]> {
+  return fetch(`${BASE}/api/user/refresh?email=${encodeURIComponent(email)}`, {
+    method: "POST",
+  }).then((r) => handle<Track[]>(r));
+}

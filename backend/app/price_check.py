@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.adapters import ProviderError, get_adapter
 from app.config import settings
-from app.crud import get_active_tracks, record_price
+from app.crud import get_active_tracks, get_tracks_by_email, record_price
 from app.models import TrackedItem, TrackStatus
 from app.notifications import notify_price_drop
 from app.url_parser import ParsedUrl
@@ -87,6 +87,22 @@ async def run_price_checks(db: Session) -> dict:
     """Check every active track. Returns a summary (for the Cron endpoint / logs)."""
     items = get_active_tracks(db)
     logger.info("Checking %d active track(s)...", len(items))
+    triggered = []
+    for item in items:
+        result = await check_one(db, item)
+        if result:
+            triggered.append(result)
+    return {"checked": len(items), "triggered": triggered}
+
+
+async def run_price_checks_for_email(db: Session, email: str) -> dict:
+    """On-demand re-check of one user's tracks (the dashboard 'Check now' button).
+
+    Skips Expired tracks; re-checks Active/Triggered/Unavailable so prices refresh
+    and a returned offer can recover its availability.
+    """
+    items = [t for t in get_tracks_by_email(db, email) if t.status != TrackStatus.EXPIRED]
+    logger.info("On-demand check of %d track(s) for %s", len(items), email)
     triggered = []
     for item in items:
         result = await check_one(db, item)

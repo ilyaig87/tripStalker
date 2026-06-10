@@ -221,6 +221,35 @@ body::before {
   font-size: 1.3rem;
   font-weight: 700;
 }
+.section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 2.2rem 0 1rem;
+}
+.btn-check {
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border-radius: 0.7rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
+}
+.btn-check:hover:not(:disabled) {
+  border-color: var(--teal);
+  color: var(--teal);
+  transform: translateY(-1px);
+}
+.btn-check:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
 
 /* ---- ticket card ---- */
 .ticket {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createTrack, deleteTrack, listTracks, type Track } from "./api";
+import { createTrack, deleteTrack, listTracks, refreshTracks, type Track } from "./api";
 
 const STATUS = {
   Active: { label: "במעקב", cls: "status--active" },
@@ -103,6 +103,7 @@ export default function App() {
   const [url, setUrl] = useState("");
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh(forEmail: string) {
@@ -141,6 +142,19 @@ export default function App() {
   async function onDelete(id: number) {
     await deleteTrack(id);
     await refresh(email);
+  }
+
+  async function onCheckNow() {
+    if (!email) return;
+    setError(null);
+    setChecking(true);
+    try {
+      setTracks(await refreshTracks(email)); // re-fetches live prices for all my tracks
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setChecking(false);
+    }
   }
 
   const dropped = tracks.filter((t) => {
@@ -218,7 +232,16 @@ export default function App() {
 
       {error && <div className="alert">{error}</div>}
 
-      <h2 className="section-label">המעקבים שלי</h2>
+      <div className="section-row">
+        <h2 className="section-label" style={{ margin: 0 }}>
+          המעקבים שלי
+        </h2>
+        {tracks.length > 0 && (
+          <button className="btn-check" onClick={onCheckNow} disabled={checking}>
+            {checking ? "בודק מחירים…" : "🔄 בדוק עכשיו"}
+          </button>
+        )}
+      </div>
 
       {tracks.length === 0 ? (
         <div className="empty">עדיין אין מעקבים — הדביקו קישור למעלה כדי להתחיל ✈️</div>

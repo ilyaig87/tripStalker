@@ -11,7 +11,7 @@ from app import crud
 from app.adapters import ProviderError, get_adapter, supported_providers
 from app.config import settings
 from app.database import get_db, init_db
-from app.price_check import run_price_checks
+from app.price_check import run_price_checks, run_price_checks_for_email
 from app.schemas import TrackCreate, TrackDetailOut, TrackOut
 from app.url_parser import parse_url
 
@@ -73,6 +73,13 @@ async def create_track(payload: TrackCreate, db: Session = Depends(get_db)) -> T
 @app.get("/api/user/tracks", response_model=list[TrackOut])
 def list_tracks(email: str, db: Session = Depends(get_db)) -> list[TrackOut]:
     """Return all tracks for a given user email."""
+    return crud.get_tracks_by_email(db, email)
+
+
+@app.post("/api/user/refresh", response_model=list[TrackOut])
+async def refresh_user_tracks(email: str, db: Session = Depends(get_db)) -> list[TrackOut]:
+    """Re-check all of a user's tracks right now, then return the updated list."""
+    await run_price_checks_for_email(db, email)
     return crud.get_tracks_by_email(db, email)
 
 
