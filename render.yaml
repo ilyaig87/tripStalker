@@ -1,12 +1,10 @@
 # Render.com Blueprint — provisions the whole TripStalker stack from this repo.
 # Deploy: render.com -> New -> Blueprint -> connect this GitHub repo -> Apply.
-# After the first deploy, set the two `sync: false` env vars (see DEPLOY.md).
-
-databases:
-  - name: tripstalker-db
-    plan: free
-    databaseName: tripstalker
-    user: tripstalker
+# After the first deploy, set the `sync: false` env vars (see DEPLOY.md).
+#
+# NOTE: Render allows only ONE free PostgreSQL per account, so this blueprint
+# does NOT create a database. Set DATABASE_URL on the API service to an existing
+# Postgres (your current Render free DB, or a free Neon DB at neon.tech).
 
 services:
   # --- Backend API (FastAPI) ---
@@ -21,10 +19,11 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.8"
+      # Paste your Postgres connection string here in the Render dashboard
+      # (existing Render free DB, or a free Neon DB). If left empty the app
+      # falls back to ephemeral SQLite (data is lost on restart).
       - key: DATABASE_URL
-        fromDatabase:
-          name: tripstalker-db
-          property: connectionString
+        sync: false
       - key: PRICE_DROP_THRESHOLD
         value: "0.02"
       # Auto-generated secret protecting /api/cron/check-prices. Copy its value

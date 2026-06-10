@@ -1,24 +1,30 @@
 # Deploying TripStalker to the cloud (Render)
 
-This repo ships a `render.yaml` blueprint that provisions everything:
-**API (FastAPI) · Frontend (React) · PostgreSQL · daily worker (cron)**.
+This repo ships a `render.yaml` blueprint that provisions the
+**API (FastAPI)** and **Frontend (React)**. You bring a **PostgreSQL** (Render
+allows only one free DB per account, so the blueprint doesn't create one) and
+the daily check runs as a free **GitHub Action**.
 
 ## One-time setup
 
-1. Push this repo to GitHub (see the main flow / `gh repo create`).
-2. Create a free account at <https://render.com> and connect your GitHub.
-3. In Render: **New → Blueprint** → pick the `TripStalker` repo → **Apply**.
-   Render reads `render.yaml` and creates the database + services.
+1. Push this repo to GitHub.
+2. **Provision a Postgres** and copy its connection string — either:
+   - a free **Neon** DB at <https://neon.tech> (recommended — fresh, no clashes), or
+   - your existing Render free Postgres (only if it's empty — our tables include
+     a `users` table that could collide with another app's).
+3. Create a free account at <https://render.com> and connect your GitHub.
+4. In Render: **New → Blueprint** → pick `tripStalker` → **Apply** → **Approve**.
+   Render creates the API + static frontend.
 
-## After the first deploy — wire the two URLs
+## After the first deploy — set the env vars
 
-The frontend and backend live on different URLs, so two env vars are set
-manually once (they're marked `sync: false` in the blueprint):
+These are marked `sync: false`, so set them once in each service's **Environment**:
 
 | Service | Env var | Set it to |
 |---------|---------|-----------|
-| `tripstalker-web` | `VITE_API_BASE` | the API URL, e.g. `https://tripstalker-api.onrender.com` |
+| `tripstalker-api` | `DATABASE_URL` | your Postgres connection string (step 2) |
 | `tripstalker-api` | `FRONTEND_ORIGIN` | the web URL, e.g. `https://tripstalker-web.onrender.com` |
+| `tripstalker-web` | `VITE_API_BASE` | the API URL, e.g. `https://tripstalker-api.onrender.com` |
 
 After setting them, trigger a redeploy of each service (the frontend must be
 **rebuilt** because Vite bakes `VITE_API_BASE` in at build time).
