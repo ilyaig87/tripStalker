@@ -49,6 +49,10 @@ _ADDED_COLUMNS = {
     "failed_checks": {"sqlite": "INTEGER DEFAULT 0", "postgresql": "INTEGER DEFAULT 0"},
     "last_error": {"sqlite": "VARCHAR(500)", "postgresql": "VARCHAR(500)"},
     "last_checked_at": {"sqlite": "TIMESTAMP", "postgresql": "TIMESTAMPTZ"},
+    "alt_price": {"sqlite": "NUMERIC(12,2)", "postgresql": "NUMERIC(12,2)"},
+    "alt_check_in": {"sqlite": "DATE", "postgresql": "DATE"},
+    "alt_check_out": {"sqlite": "DATE", "postgresql": "DATE"},
+    "alt_url": {"sqlite": "VARCHAR(1000)", "postgresql": "VARCHAR(1000)"},
 }
 
 

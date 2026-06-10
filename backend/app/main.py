@@ -90,6 +90,15 @@ async def refresh_user_tracks(email: str, db: Session = Depends(get_db)) -> list
     return crud.get_tracks_by_email(db, email)
 
 
+@app.post("/api/track/{track_id}/reset", response_model=TrackOut)
+def reset_track_baseline(track_id: int, db: Session = Depends(get_db)) -> TrackOut:
+    """Reset a track's baseline to its current price (clears a false drop/increase)."""
+    item = crud.reset_baseline(db, track_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Track not found")
+    return item
+
+
 @app.get("/api/track/{track_id}", response_model=TrackDetailOut)
 def get_track(track_id: int, db: Session = Depends(get_db)) -> TrackDetailOut:
     item = crud.get_track(db, track_id)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createTrack, deleteTrack, listTracks, refreshTracks, type Track } from "./api";
+import { createTrack, deleteTrack, listTracks, refreshTracks, resetTrack, type Track } from "./api";
 
 const STATUS = {
   Active: { label: "במעקב", cls: "status--active" },
@@ -182,6 +182,11 @@ export default function App() {
     await refresh(email);
   }
 
+  async function onReset(id: number) {
+    await resetTrack(id); // make the current price the new baseline
+    await refresh(email);
+  }
+
   async function onCheckNow() {
     if (!email) return;
     setError(null);
@@ -331,9 +336,18 @@ export default function App() {
                       <span className={`status ${st.cls}`}>{st.label}</span>
                     )}
                   </div>
-                  <button className="delete-btn" onClick={() => onDelete(t.id)} title="מחיקה">
-                    הסר ✕
-                  </button>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <button
+                      className="reset-btn"
+                      onClick={() => onReset(t.id)}
+                      title="אפס את הבסיס למחיר הנוכחי"
+                    >
+                      ↺ אפס
+                    </button>
+                    <button className="delete-btn" onClick={() => onDelete(t.id)} title="מחיקה">
+                      הסר ✕
+                    </button>
+                  </div>
                 </div>
 
                 <h3 className="hotel">
@@ -389,6 +403,21 @@ export default function App() {
                     <span aria-hidden>↗</span>
                   </a>
                 </div>
+
+                {t.alt_price && (
+                  <a className="alt-suggest" href={t.alt_url ?? t.raw_url} target="_blank" rel="noreferrer">
+                    💡 אותו מלון זול יותר ב-<b>{dm(t.alt_check_in)}–{dm(t.alt_check_out)}</b>:{" "}
+                    <b>{money(t.alt_price, t.currency)}</b>
+                    {t.current_price && Number(t.current_price) > Number(t.alt_price) && (
+                      <span className="alt-save">
+                        {" "}
+                        חיסכון {sym(t.currency)}
+                        {Math.round(Number(t.current_price) - Number(t.alt_price)).toLocaleString()}
+                      </span>
+                    )}
+                    <span aria-hidden> ↗</span>
+                  </a>
+                )}
               </article>
             );
           })}

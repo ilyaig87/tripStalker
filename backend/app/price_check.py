@@ -5,7 +5,7 @@ the two entry points can never drift apart.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -65,6 +65,9 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
     record_price(db, item, result.price)
     logger.info("Track %s: %s -> %s %s", item.id, baseline, result.price, result.currency)
 
+    # Cheaper same-hotel/same-nights alternative on other dates (best-effort).
+    alt = await _store_alternative(db, item, adapter, result.price)
+
     threshold = baseline * Decimal(str(settings.price_drop_threshold))
     if result.price < baseline - threshold:
         notify_price_drop(
@@ -74,6 +77,7 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
             new_price=result.price,
             currency=result.currency,
             link=item.raw_url,
+            alternative=alt,
         )
         item.status = TrackStatus.TRIGGERED
         db.commit()
@@ -84,6 +88,23 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
             "currency": result.currency,
         }
     return None
+
+
+async def _store_alternative(db: Session, item: TrackedItem, adapter, current_price: Decimal) -> dict | None:
+    """Find + store a cheaper alternative if the adapter supports it. Never raises."""
+    finder = getattr(adapter, "find_cheaper_alternative", None)
+    alt = None
+    if finder:
+        try:
+            alt = await finder(_parsed_from_item(item), current_price)
+        except Exception as exc:  # best-effort: a suggestion failure must not break the check
+            logger.warning("Alternative finder failed for track %s: %s", item.id, exc)
+    item.alt_price = Decimal(str(alt["price"])).quantize(Decimal("1.00")) if alt else None
+    item.alt_check_in = date.fromisoformat(alt["check_in"]) if alt and alt.get("check_in") else None
+    item.alt_check_out = date.fromisoformat(alt["check_out"]) if alt and alt.get("check_out") else None
+    item.alt_url = alt.get("url") if alt else None
+    db.commit()
+    return alt
 
 
 async def run_price_checks(db: Session) -> dict:

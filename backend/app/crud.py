@@ -81,6 +81,23 @@ def delete_track(db: Session, track_id: int) -> bool:
     return True
 
 
+def reset_baseline(db: Session, track_id: int) -> TrackedItem | None:
+    """Re-baseline a track: make the current price the new reference and re-arm it.
+
+    Useful after a pricing correction (e.g. luggage) so a non-real change doesn't
+    keep showing as a drop/increase.
+    """
+    item = db.get(TrackedItem, track_id)
+    if item is None:
+        return None
+    if item.current_price is not None:
+        item.initial_price = item.current_price
+    item.status = TrackStatus.ACTIVE
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 def get_active_tracks(db: Session) -> list[TrackedItem]:
     return list(db.scalars(select(TrackedItem).where(TrackedItem.status == TrackStatus.ACTIVE)))
 

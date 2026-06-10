@@ -19,6 +19,10 @@ export interface Track {
   available: boolean;
   last_error: string | null;
   last_checked_at: string | null;
+  alt_price: string | null;
+  alt_check_in: string | null;
+  alt_check_out: string | null;
+  alt_url: string | null;
   created_at: string;
 }
 
@@ -50,6 +54,11 @@ export function listTracks(email: string): Promise<Track[]> {
 
 export function deleteTrack(id: number): Promise<void> {
   return fetch(`${BASE}/api/track/${id}`, { method: "DELETE" }).then((r) => handle<void>(r));
+}
+
+// Reset a track's baseline to its current price (clears a false drop/increase).
+export function resetTrack(id: number): Promise<Track> {
+  return fetch(`${BASE}/api/track/${id}/reset`, { method: "POST" }).then((r) => handle<Track>(r));
 }
 
 // Re-check all of a user's tracks right now; returns the freshly updated list.

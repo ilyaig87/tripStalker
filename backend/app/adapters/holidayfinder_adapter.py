@@ -17,8 +17,10 @@ Verified example: offer 6606726, 15–20 Sep 2026, 2 adults + 1 child, AI ->
 """
 from __future__ import annotations
 
+import json
 import time
 import uuid
+from datetime import date
 from decimal import Decimal
 from urllib.parse import parse_qs, urlparse
 
@@ -30,6 +32,8 @@ from app.config import settings
 from app.url_parser import ParsedUrl
 
 _API_BASE = "https://www.holidayfinder.co.il/api_no_auth/package_search/hf-offer"
+_GRAPH_URL = "https://www.holidayfinder.co.il/api_no_auth/holiday_finder/hotel-graph/"
+_LUGGAGE_TIERS = {"withTrolley", "withCib", "withBoth"}
 _HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -117,7 +121,88 @@ class HolidayFinderAdapter(BaseProviderAdapter):
         )
 
 
+    async def find_cheaper_alternative(self, parsed: ParsedUrl, current_price: Decimal) -> dict | None:
+        """Same hotel + same nights + same month, on other dates, cheaper.
+
+        Uses the hotel-graph endpoint (a month of date→price points). Compares with
+        the SAME luggage tier the user chose, so prices match the tracked price.
+        Returns {price, check_in, check_out, url, savings} or None. Best-effort.
+        """
+        if not (parsed.check_in_date and parsed.check_out_date):
+            return None
+        qs = parse_qs(urlparse(parsed.raw_url).query)
+
+        def q(key: str, default: str = "") -> str:
+            return qs[key][0] if qs.get(key) else default
+
+        bc = q("bc")
+        parts = bc.split(":")
+        if not parts[0]:
+            return None
+        hf_offer_id = parts[0]
+        board = parts[2] if len(parts) >= 3 else "AI"
+        tier = parts[1] if len(parts) >= 2 else "naked"
+        luggage = tier if tier in _LUGGAGE_TIERS else "naked"
+
+        duration = (parsed.check_out_date - parsed.check_in_date).days
+        user_start = parsed.check_in_date.strftime("%d/%m/%Y")
+        data = {
+            "currency": "USD",
+            "hotelBoard": board,
+            "when": {"month": parsed.check_in_date.month, "year": parsed.check_in_date.year, "duration": duration},
+            "luggage": luggage,
+            "hfOfferId": hf_offer_id,
+        }
+        params = {
+            "data": json.dumps(data),
+            "adult": q("adult", "2"),
+            "child": q("child", "[]"),
+            "airports[]": q("airports[]", "TLV"),
+            "lang": "he",
+            "muid": uuid.uuid4().hex,
+            "tt": str(int(time.time() * 1000)),
+        }
+        try:
+            graph = await get_json(_GRAPH_URL, params=params, headers=_HEADERS, proxy=settings.proxy_url or None)
+        except (httpx.HTTPError, ValueError):
+            return None
+
+        hotels = (graph.get("data") or {}).get("hotel") or {}
+        if not hotels:
+            return None
+        dates = next(iter(hotels.values())).get("dates") or []
+        priced = [e for e in dates if isinstance(e.get("price"), (int, float)) and e["price"] > 0]
+        if not priced:
+            return None
+
+        baseline = next((e["price"] for e in priced if e.get("start") == user_start), float(current_price))
+        cheapest = min(priced, key=lambda e: e["price"])
+        if cheapest.get("start") == user_start:
+            return None  # the user's dates are already the cheapest
+        savings = baseline - cheapest["price"]
+        if savings < max(50, baseline * 0.03):  # only suggest a meaningful saving
+            return None
+        return {
+            "price": cheapest["price"],
+            "check_in": _ddmmyyyy_to_iso(cheapest.get("start")),
+            "check_out": _ddmmyyyy_to_iso(cheapest.get("end")),
+            "url": cheapest.get("packageDeeplinkUrl") or cheapest.get("packageDeeplinkUrlLegacy"),
+            "savings": round(savings),
+        }
+
+
 def _luggage_tier(bc: str) -> str | None:
     """Pull the luggage tier from a booking code like '...st1:withTrolley:AI'."""
     parts = bc.split(":")
     return parts[1] if len(parts) >= 2 else None
+
+
+def _ddmmyyyy_to_iso(value: str | None) -> str | None:
+    """'01/09/2026' -> '2026-09-01'."""
+    if not value:
+        return None
+    try:
+        d, m, y = value.split("/")
+        return date(int(y), int(m), int(d)).isoformat()
+    except (ValueError, AttributeError):
+        return None

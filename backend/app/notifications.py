@@ -22,6 +22,7 @@ def notify_price_drop(
     new_price: Decimal,
     currency: str,
     link: str | None = None,
+    alternative: dict | None = None,
 ) -> None:
     drop = old_price - new_price
     pct = (drop / old_price * 100) if old_price else Decimal(0)
@@ -36,6 +37,13 @@ def notify_price_drop(
     ]
     if link:
         lines.append(f'🔗 <a href="{link}">לצפייה בהצעה</a>')
+    if alternative:
+        lines.append(
+            f"💡 זול יותר: {alternative.get('check_in')} – {alternative.get('check_out')} "
+            f"ב-${alternative.get('price')} (חיסכון ${alternative.get('savings')})"
+        )
+        if alternative.get("url"):
+            lines.append(f'🔗 <a href="{alternative["url"]}">לחלופה הזולה</a>')
     _send_telegram("\n".join(lines))
 
 

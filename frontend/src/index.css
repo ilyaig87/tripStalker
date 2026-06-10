@@ -610,6 +610,42 @@ body::before {
 .delete-btn:hover {
   color: var(--up);
 }
+.reset-btn {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.2rem 0.3rem;
+  transition: color 0.15s;
+}
+.reset-btn:hover {
+  color: var(--teal);
+}
+
+.alt-suggest {
+  display: block;
+  margin-top: 0.9rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--teal-tint);
+  border: 1px solid #cfe0dc;
+  border-radius: 0.7rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.15s, transform 0.12s;
+}
+.alt-suggest:hover {
+  background: #d3e4e0;
+  transform: translateY(-1px);
+}
+.alt-save {
+  color: var(--down);
+  font-weight: 800;
+}
 
 .empty {
   background: var(--paper);

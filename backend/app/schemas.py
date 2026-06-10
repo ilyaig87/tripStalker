@@ -39,6 +39,10 @@ class TrackOut(BaseModel):
     available: bool = True
     last_error: str | None = None
     last_checked_at: datetime | None = None
+    alt_price: Decimal | None = None
+    alt_check_in: date | None = None
+    alt_check_out: date | None = None
+    alt_url: str | None = None
     created_at: datetime
 
 
