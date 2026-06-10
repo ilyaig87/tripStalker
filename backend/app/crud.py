@@ -1,6 +1,7 @@
 """Database access helpers (thin layer over SQLAlchemy)."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -41,6 +42,7 @@ def create_track(
         current_price=initial_price,
         currency=currency,
         status=TrackStatus.ACTIVE,
+        last_checked_at=datetime.now(timezone.utc),  # creation fetched the initial price
     )
     db.add(item)
     db.flush()

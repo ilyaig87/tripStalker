@@ -4,12 +4,12 @@ from __future__ import annotations
 from app.adapters.base import BaseProviderAdapter, ProviderError
 from app.adapters.global_adapter import GlobalAdapter
 from app.adapters.holidayfinder_adapter import HolidayFinderAdapter
-from app.adapters.israel_adapter import IsraelAdapter
+from app.adapters.israel_adapter import TravelistAdapter
 
 # Singleton instances are fine — adapters are stateless.
 _REGISTRY: dict[str, BaseProviderAdapter] = {
     "booking": GlobalAdapter(),
-    "travelist": IsraelAdapter(),
+    "travelist": TravelistAdapter(),
     "holidayfinder": HolidayFinderAdapter(),
 }
 

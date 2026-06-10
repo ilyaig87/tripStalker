@@ -1,149 +1,134 @@
-"""IsraelAdapter — Travelist.co.il (and a template for other local IL sites).
+"""TravelistAdapter — travelist.co.il flight search (reverse-engineered, real).
 
-Strategy: Israeli OTAs rarely expose a public API, so we reverse-engineer the
-internal endpoint the site's own frontend calls (visible in the browser's
-Network tab as an XHR/fetch returning JSON). We replay that request from the
-backend with proper headers and, if the site sits behind a WAF (Cloudflare /
-Imperva), a residential proxy.
+Flow (no auth, no WAF, replayable with plain httpx):
+  1. POST /api/v1/flights/startsearch  with the search params
+        -> {"url": "https://www.travelist.co.il/search-results/<date>/<uuid>.json"}
+  2. GET that url (the search runs async; poll until `products` appear)
+        -> products[] each with `USDPrice` (total round-trip, USD)
 
-This file is a SKELETON with concrete reverse-engineering hints. The exact
-endpoint + payload MUST be confirmed against a live session — see the numbered
-steps in `_INTERNAL_API_HINTS` below before going live.
+We track the **cheapest** round-trip total (min USDPrice across products) in USD.
+The search params are re-parsed from the stored `raw_url`, so the cron worker
+works without the transient parsed `extra`.
 """
 from __future__ import annotations
 
+import asyncio
+import re
+import time
 from decimal import Decimal
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
+from app.adapters._http import get_json, post_json
 from app.adapters.base import BaseProviderAdapter, PriceResult, ProviderError
 from app.config import settings
 from app.url_parser import ParsedUrl
 
-# ---------------------------------------------------------------------------
-# REVERSE ENGINEERING PLAYBOOK (do this once, manually, then fill in below)
-# ---------------------------------------------------------------------------
-_INTERNAL_API_HINTS = """
-1. Open a Travelist deal/search page in Chrome with DevTools -> Network -> Fetch/XHR.
-2. Trigger a search (change dates / occupancy). Look for a JSON response that
-   contains the price you see on screen. Common shapes:
-       POST https://www.travelist.co.il/api/.../search
-       GET  https://www.travelist.co.il/.../availability?dealId=...&checkIn=...
-3. Right-click that request -> "Copy as cURL" to capture the EXACT:
-       - method, full URL, query params / JSON body
-       - required headers (User-Agent, Accept, Referer, x-requested-with,
-         and any auth/csrf token or cookie)
-4. Map the JSON response: find the field holding the total price and currency
-   (e.g. data.packages[].price.amount). Put that path in `_extract_price`.
-5. If you get 403/429 or a challenge page instead of JSON -> WAF. Route the
-   request through `settings.proxy_url` (residential) and reuse a warmed cookie.
-"""
-
-# Fill these in from step 3 above. Defaults are placeholders.
-_SEARCH_ENDPOINT = "https://www.travelist.co.il/api/search"  # TODO: confirm real path
-_DEFAULT_HEADERS = {
+_START_URL = "https://www.travelist.co.il/api/v1/flights/startsearch"
+_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     ),
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "he-IL,he;q=0.9,en;q=0.8",
-    "Referer": "https://www.travelist.co.il/",
+    "Content-Type": "application/json",
+    "Referer": "https://www.travelist.co.il/flightsResults",
     "X-Requested-With": "XMLHttpRequest",
 }
+_SEGMENT_RE = re.compile(r"segmentsClient\[(\d+)\]\[(from|to|date)\]")
 
 
-class IsraelAdapter(BaseProviderAdapter):
+class TravelistAdapter(BaseProviderAdapter):
     provider_key = "travelist"
 
     async def fetch_current_price(self, parsed: ParsedUrl) -> PriceResult:
-        payload = self._build_payload(parsed)
-        proxies = settings.proxy_url or None
+        qs = parse_qs(urlparse(parsed.raw_url).query)
+        segments = self._segments(qs)
+        if not segments:
+            raise ProviderError("Travelist URL has no flight segments (expected a /flightsResults link)")
+
+        def as_int(key: str, default: int) -> int:
+            try:
+                return int(qs[key][0])
+            except (KeyError, ValueError, IndexError):
+                return default
+
+        body = {
+            "segmentsClient": segments,
+            "flightType": (qs.get("flightType") or ["RoundTrip"])[0],
+            "adults": as_int("adults", 2),
+            "infants": as_int("infants", 0),
+            "children": as_int("children", 0),
+            "seniors": as_int("seniors", 0),
+            "platform": "web",
+            "deviceType": "desktop",
+            "initStartTimestamp": int(time.time() * 1000),
+        }
+        proxy = settings.proxy_url or None
 
         try:
-            async with httpx.AsyncClient(timeout=25, proxy=proxies, follow_redirects=True) as client:
-                # Travelist's internal search is typically a POST with a JSON body;
-                # switch to client.get(..., params=payload) if step 2 showed a GET.
-                resp = await client.post(_SEARCH_ENDPOINT, headers=_DEFAULT_HEADERS, json=payload)
-                resp.raise_for_status()
-                data = resp.json()
+            start = await post_json(_START_URL, json=body, headers=_HEADERS, proxy=proxy)
         except (httpx.HTTPError, ValueError) as exc:
-            raise ProviderError(
-                f"IsraelAdapter fetch failed ({exc}). If this is a 403/JSON error, "
-                f"the WAF likely blocked us — configure PROXY_URL. See hints:\n{_INTERNAL_API_HINTS}"
-            ) from exc
+            raise ProviderError(f"Travelist startsearch failed: {exc}") from exc
 
+        results_url = (start or {}).get("url")
+        if not results_url:
+            raise ProviderError("Travelist startsearch returned no results url")
+
+        data = await self._poll_results(results_url, proxy)
         return self._extract_price(data, parsed)
 
-    # ------------------------------------------------------------- internals
-    def _build_payload(self, parsed: ParsedUrl) -> dict:
-        """Translate normalized params into Travelist's expected request body.
+    def _segments(self, qs: dict[str, list[str]]) -> list[dict[str, str]]:
+        segs: dict[int, dict[str, str]] = {}
+        for key, vals in qs.items():
+            m = _SEGMENT_RE.fullmatch(key)
+            if m and vals:
+                segs.setdefault(int(m.group(1)), {})[m.group(2)] = vals[0]
+        return [segs[i] for i in sorted(segs)]
 
-        The keys below are GUESSES based on common Israeli OTA APIs — replace
-        them with the real ones captured in the playbook step 3.
-        """
-        return {
-            "destination": parsed.destination,
-            "checkIn": str(parsed.check_in_date) if parsed.check_in_date else None,
-            "checkOut": str(parsed.check_out_date) if parsed.check_out_date else None,
-            "rooms": _rooms_payload(parsed.room_config),
-            "dealId": parsed.target_hotel_id_or_name,
-            "currency": "ILS",
-        }
+    async def _poll_results(self, url: str, proxy: str | None, attempts: int = 8, delay: float = 1.5) -> dict:
+        """The results JSON is written asynchronously — poll until it has products."""
+        last: dict | None = None
+        for _ in range(attempts):
+            try:
+                data = await get_json(url, headers=_HEADERS, proxy=proxy)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:  # not ready yet
+                    await asyncio.sleep(delay)
+                    continue
+                raise ProviderError(f"Travelist results fetch failed: {exc}") from exc
+            except (httpx.HTTPError, ValueError) as exc:
+                raise ProviderError(f"Travelist results fetch failed: {exc}") from exc
+
+            if data.get("products"):
+                last = data
+                progress = data.get("progress")
+                if progress is None or (isinstance(progress, (int, float)) and progress >= 100):
+                    return data
+            await asyncio.sleep(delay)
+
+        if last:
+            return last
+        raise ProviderError("Travelist returned no flight results in time")
 
     def _extract_price(self, data: dict, parsed: ParsedUrl) -> PriceResult:
-        """Pull the price for the user's specific package out of the JSON.
+        prices = []
+        for product in data.get("products") or []:
+            usd = product.get("USDPrice")
+            if usd is None and product.get("agencies"):
+                usd = (product["agencies"][0] or {}).get("USDPrice")
+            if isinstance(usd, (int, float)) and usd > 0:
+                prices.append(usd)
+        if not prices:
+            raise ProviderError("No priced flights in Travelist results (sold out / no availability)")
 
-        TODO: replace this traversal with the real path found in playbook step 4.
-        We defensively try a few likely shapes so the skeleton fails loudly
-        with a helpful message instead of a random KeyError.
-        """
-        candidates = (
-            data.get("packages")
-            or data.get("results")
-            or data.get("deals")
-            or []
-        )
-        if not candidates:
-            raise ProviderError(
-                "Could not locate price array in Travelist response. "
-                "Inspect the JSON and update `_extract_price`."
-            )
-
-        # If we know the target deal, prefer it; otherwise take the cheapest.
-        target_id = parsed.target_hotel_id_or_name
-
-        def price_of(item: dict) -> float:
-            node = item.get("price", item)
-            return float(node.get("amount", node.get("total", float("inf"))))
-
-        chosen = None
-        if target_id:
-            chosen = next(
-                (c for c in candidates if str(c.get("id") or c.get("dealId")) == str(target_id)),
-                None,
-            )
-        if chosen is None:
-            chosen = min(candidates, key=price_of)
-
-        price_node = chosen.get("price", chosen)
-        amount = price_node.get("amount", price_node.get("total"))
-        if amount is None:
-            raise ProviderError("Found package but no price field — update `_extract_price`.")
-
+        cheapest = min(prices)
+        label = parsed.target_hotel_id_or_name or parsed.destination or "טיסה"
         return PriceResult(
-            price=Decimal(str(amount)).quantize(Decimal("1.00")),
-            currency=price_node.get("currency", "ILS"),
-            hotel_name=chosen.get("name") or chosen.get("hotelName"),
-            raw=chosen,
+            price=Decimal(str(cheapest)).quantize(Decimal("1.00")),
+            currency="USD",
+            hotel_name=f"✈️ {label}",
+            raw={"cheapest_usd": cheapest, "products": len(data.get("products") or [])},
         )
-
-
-def _rooms_payload(room_config: str | None) -> list[dict]:
-    adults, children = 2, 0
-    for part in (room_config or "").split(","):
-        if part.endswith("-adults"):
-            adults = int(part.split("-")[0])
-        elif part.endswith("-children"):
-            children = int(part.split("-")[0])
-    return [{"adults": adults, "children": children}]

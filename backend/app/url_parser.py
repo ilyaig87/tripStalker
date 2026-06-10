@@ -101,13 +101,32 @@ def _parse_booking(url: str, path: str, qs: dict[str, list[str]]) -> ParsedUrl:
 
 
 def _parse_travelist(url: str, path: str, qs: dict[str, list[str]]) -> ParsedUrl:
-    """Travelist.co.il package URLs.
+    """Travelist.co.il URLs.
 
-    Travelist URLs vary between a deal page and a search page. We try query
-    params first, then fall back to a numeric deal id in the path.
-    Typical search params (verify against a live request — see IsraelAdapter):
-        destination / dest, depart / checkIn, return / checkOut, rooms, adults
+    Flight searches (/flightsResults) carry bracketed `segmentsClient[i][...]`
+    params; we reconstruct origin/destination/dates from them. Older package/deal
+    URLs fall back to the legacy query-param parsing below.
     """
+    if "flightsResults" in path or any(k.startswith("segmentsClient") for k in qs):
+        segs: dict[int, dict[str, str]] = {}
+        for key, vals in qs.items():
+            m = re.fullmatch(r"segmentsClient\[(\d+)\]\[(from|to|date)\]", key)
+            if m and vals:
+                segs.setdefault(int(m.group(1)), {})[m.group(2)] = vals[0]
+        ordered = [segs[i] for i in sorted(segs)]
+        origin = ordered[0].get("from") if ordered else None
+        dest = ordered[0].get("to") if ordered else None
+        return ParsedUrl(
+            provider="travelist",
+            raw_url=url,
+            destination=dest,
+            check_in_date=_parse_date(ordered[0].get("date")) if ordered else None,
+            check_out_date=_parse_date(ordered[-1].get("date")) if len(ordered) > 1 else None,
+            room_config=_normalize_occupancy(_first(qs, "adults") or "2", _first(qs, "children") or "0"),
+            target_hotel_id_or_name=f"{origin}-{dest}" if origin and dest else None,
+            extra={k: v[0] for k, v in qs.items()},
+        )
+
     adults = _first(qs, "adults", "ad") or "2"
     children = _first(qs, "children", "ch", "kids") or "0"
     rooms = _first(qs, "rooms")
