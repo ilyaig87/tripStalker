@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     # --- CORS ---
     frontend_origin: str = "http://localhost:5173"
 
+    # --- Cron auth (Vercel Cron sends "Authorization: Bearer <CRON_SECRET>") ---
+    cron_secret: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,7 @@ from app import crud
 from app.adapters import ProviderError, get_adapter, supported_providers
 from app.config import settings
 from app.database import get_db, init_db
+from app.price_check import run_price_checks
 from app.schemas import TrackCreate, TrackDetailOut, TrackOut
 from app.url_parser import parse_url
 
@@ -88,3 +89,18 @@ def delete_track(track_id: int, db: Session = Depends(get_db)) -> dict:
     if not crud.delete_track(db, track_id):
         raise HTTPException(status_code=404, detail="Track not found")
     return {"deleted": True, "id": track_id}
+
+
+@app.get("/api/cron/check-prices")
+async def cron_check_prices(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Daily price check, invoked by a scheduler (Vercel Cron / GitHub Actions).
+
+    Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`. When CRON_SECRET is
+    set we require it; left empty (local/dev) the endpoint is open.
+    """
+    if settings.cron_secret and authorization != f"Bearer {settings.cron_secret}":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return await run_price_checks(db)
