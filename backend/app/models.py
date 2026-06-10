@@ -66,6 +66,14 @@ class TrackedItem(Base):
     currency: Mapped[str] = mapped_column(String(3), default="USD")
 
     status: Mapped[TrackStatus] = mapped_column(default=TrackStatus.ACTIVE, index=True)
+
+    # Availability — flips to False after repeated failed price fetches
+    # (offer sold out / removed). Kept separate from `status` so we don't have to
+    # migrate the status enum type on Postgres.
+    available: Mapped[bool] = mapped_column(default=True)
+    failed_checks: Mapped[int] = mapped_column(default=0)
+    last_error: Mapped[str | None] = mapped_column(String(500))
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped[User] = relationship(back_populates="tracked_items")

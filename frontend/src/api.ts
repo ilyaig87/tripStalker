@@ -16,6 +16,8 @@ export interface Track {
   current_price: string | null;
   currency: string;
   status: TrackStatus;
+  available: boolean;
+  last_error: string | null;
   created_at: string;
 }
 

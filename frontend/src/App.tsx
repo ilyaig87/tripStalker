@@ -235,17 +235,25 @@ export default function App() {
                 : null;
             const delta = priceDelta(t.initial_price, t.current_price);
             const st = STATUS[t.status] ?? STATUS.Active;
+            const gone = !t.available;
 
             return (
               <article
                 key={t.id}
-                className="ticket reveal"
-                style={{ ["--spine" as string]: SPINE[t.status], animationDelay: `${idx * 70}ms` }}
+                className={`ticket reveal${gone ? " ticket--gone" : ""}`}
+                style={{
+                  ["--spine" as string]: gone ? "var(--up)" : SPINE[t.status],
+                  animationDelay: `${idx * 70}ms`,
+                }}
               >
                 <div className="ticket-head">
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
                     <span className="badge">{PROVIDER_LABEL[t.provider] ?? t.provider}</span>
-                    <span className={`status ${st.cls}`}>{st.label}</span>
+                    {gone ? (
+                      <span className="status status--gone">⚠ לא זמינה יותר</span>
+                    ) : (
+                      <span className={`status ${st.cls}`}>{st.label}</span>
+                    )}
                   </div>
                   <button className="delete-btn" onClick={() => onDelete(t.id)} title="מחיקה">
                     הסר ✕
@@ -266,6 +274,13 @@ export default function App() {
                   {occ && <Stat icon="👥" label="תפוסה" value={occ} />}
                 </div>
 
+                {gone && (
+                  <div className="note-gone">
+                    <span aria-hidden>⚠️</span>
+                    ההצעה לא נמצאה בבדיקה האחרונה — ייתכן שנמכרה או הוסרה. המחיר הוא האחרון שנשמר.
+                  </div>
+                )}
+
                 <div className="foot">
                   <div>
                     <div className="price-now">
@@ -273,13 +288,15 @@ export default function App() {
                         {money(t.current_price, t.currency)}
                         <small>סה״כ</small>
                       </span>
-                      {delta && delta.dir !== "flat" && (
+                      {!gone && delta && delta.dir !== "flat" && (
                         <span className={`delta delta--${delta.dir} tnum`}>
                           {delta.dir === "down" ? "↓ ירד" : "↑ עלה"} {sym(t.currency)}
                           {delta.amount} ({delta.pct}%)
                         </span>
                       )}
-                      {delta && delta.dir === "flat" && <span className="delta delta--flat">ללא שינוי</span>}
+                      {!gone && delta && delta.dir === "flat" && (
+                        <span className="delta delta--flat">ללא שינוי</span>
+                      )}
                     </div>
                     <div className="price-sub tnum">
                       {perPax && <>{perPax} לאדם · </>}

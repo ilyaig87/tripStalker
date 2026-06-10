@@ -304,6 +304,33 @@ body::before {
   color: var(--ink-soft);
   background: var(--cream-deep);
 }
+.status--gone {
+  color: var(--up);
+  background: var(--up-tint);
+}
+
+/* offer no longer available */
+.ticket--gone {
+  opacity: 0.86;
+}
+.ticket--gone .price-cur {
+  color: var(--ink-faint);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+.note-gone {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--up-tint);
+  border: 1px solid #eecbc3;
+  border-radius: 0.6rem;
+  color: var(--up);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
 
 .hotel {
   margin-top: 0.7rem;

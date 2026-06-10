@@ -36,6 +36,8 @@ class TrackOut(BaseModel):
     current_price: Decimal | None
     currency: str
     status: TrackStatus
+    available: bool = True
+    last_error: str | None = None
     created_at: datetime
 
 

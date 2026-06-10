@@ -41,9 +41,43 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+# Columns added after the first release. We add them on startup so existing
+# databases (local SQLite, the live Neon Postgres) pick them up without Alembic.
+_ADDED_COLUMNS = {
+    "hotel_name": {"sqlite": "VARCHAR(255)", "postgresql": "VARCHAR(255)"},
+    "available": {"sqlite": "BOOLEAN DEFAULT 1", "postgresql": "BOOLEAN DEFAULT TRUE"},
+    "failed_checks": {"sqlite": "INTEGER DEFAULT 0", "postgresql": "INTEGER DEFAULT 0"},
+    "last_error": {"sqlite": "VARCHAR(500)", "postgresql": "VARCHAR(500)"},
+}
+
+
+def _ensure_columns() -> None:
+    """Lightweight idempotent migration: ADD COLUMN for anything missing."""
+    from sqlalchemy import text
+
+    dialect = engine.dialect.name  # 'sqlite' or 'postgresql'
+    with engine.begin() as conn:
+        if dialect == "sqlite":
+            existing = {r[1] for r in conn.execute(text("PRAGMA table_info(tracked_items)"))}
+        else:
+            existing = {
+                r[0]
+                for r in conn.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = 'tracked_items'"
+                    )
+                )
+            }
+        for col, ddl in _ADDED_COLUMNS.items():
+            if col not in existing and dialect in ddl:
+                conn.execute(text(f"ALTER TABLE tracked_items ADD COLUMN {col} {ddl[dialect]}"))
+
+
 def init_db() -> None:
-    """Create all tables. For real projects prefer Alembic migrations."""
+    """Create all tables, then patch in any newer columns."""
     # Import models so they are registered on the Base metadata before create_all.
     from app import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _ensure_columns()

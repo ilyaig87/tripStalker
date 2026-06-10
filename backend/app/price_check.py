@@ -18,6 +18,10 @@ from app.url_parser import ParsedUrl
 
 logger = logging.getLogger("tripstalker.price_check")
 
+# Mark an offer "unavailable" only after this many consecutive failed fetches,
+# so a single transient blip (rate limit, timeout) doesn't trip a false alarm.
+UNAVAILABLE_AFTER = 2
+
 
 def _parsed_from_item(item: TrackedItem) -> ParsedUrl:
     """Rebuild a ParsedUrl from stored columns (no need to re-parse raw_url)."""
@@ -38,8 +42,22 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
     try:
         result = await adapter.fetch_current_price(_parsed_from_item(item))
     except ProviderError as exc:
-        logger.warning("Skipping track %s (%s): %s", item.id, item.provider, exc)
+        # Couldn't fetch a price — count the failure and, after a few in a row,
+        # flag the offer as no longer available.
+        item.failed_checks = (item.failed_checks or 0) + 1
+        item.last_error = str(exc)[:500]
+        if item.failed_checks >= UNAVAILABLE_AFTER and item.available:
+            item.available = False
+            logger.info("Track %s marked UNAVAILABLE after %d failures", item.id, item.failed_checks)
+        db.commit()
+        logger.warning("Track %s (%s) fetch failed: %s", item.id, item.provider, exc)
         return None
+
+    # Success — clear any prior failure / unavailable state.
+    if not item.available or item.failed_checks:
+        item.available = True
+        item.failed_checks = 0
+        item.last_error = None
 
     baseline: Decimal = item.current_price or item.initial_price or result.price
     record_price(db, item, result.price)
