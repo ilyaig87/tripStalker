@@ -17,6 +17,7 @@ Verified example: offer 6606726, 15–20 Sep 2026, 2 adults + 1 child, AI ->
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import uuid
@@ -34,6 +35,7 @@ from app.url_parser import ParsedUrl
 _API_BASE = "https://www.holidayfinder.co.il/api_no_auth/package_search/hf-offer"
 _GRAPH_URL = "https://www.holidayfinder.co.il/api_no_auth/holiday_finder/hotel-graph/"
 _LUGGAGE_TIERS = {"withTrolley", "withCib", "withBoth"}
+_MONTHS_TO_SCAN = 4  # the tracked month + the next 3 (wider cheaper-date search)
 _HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -122,11 +124,12 @@ class HolidayFinderAdapter(BaseProviderAdapter):
 
 
     async def find_cheaper_alternative(self, parsed: ParsedUrl, current_price: Decimal) -> dict | None:
-        """Same hotel + same nights + same month, on other dates, cheaper.
+        """Same hotel + same nights, cheaper on other dates — scanning several months.
 
-        Uses the hotel-graph endpoint (a month of date→price points). Compares with
-        the SAME luggage tier the user chose, so prices match the tracked price.
-        Returns {price, check_in, check_out, url, savings} or None. Best-effort.
+        Queries the hotel-graph for the tracked month and the next few months (each
+        a month of date→price points), with the SAME luggage tier the user chose so
+        prices match the tracked price. Returns the cheapest date across the whole
+        window if it beats the user's own dates by a threshold; else None. Best-effort.
         """
         if not (parsed.check_in_date and parsed.check_out_date):
             return None
@@ -143,42 +146,30 @@ class HolidayFinderAdapter(BaseProviderAdapter):
         board = parts[2] if len(parts) >= 3 else "AI"
         tier = parts[1] if len(parts) >= 2 else "naked"
         luggage = tier if tier in _LUGGAGE_TIERS else "naked"
-
         duration = (parsed.check_out_date - parsed.check_in_date).days
         user_start = parsed.check_in_date.strftime("%d/%m/%Y")
-        data = {
-            "currency": "USD",
-            "hotelBoard": board,
-            "when": {"month": parsed.check_in_date.month, "year": parsed.check_in_date.year, "duration": duration},
-            "luggage": luggage,
-            "hfOfferId": hf_offer_id,
-        }
-        params = {
-            "data": json.dumps(data),
-            "adult": q("adult", "2"),
-            "child": q("child", "[]"),
-            "airports[]": q("airports[]", "TLV"),
-            "lang": "he",
-            "muid": uuid.uuid4().hex,
-            "tt": str(int(time.time() * 1000)),
-        }
-        try:
-            graph = await get_json(_GRAPH_URL, params=params, headers=_HEADERS, proxy=settings.proxy_url or None)
-        except (httpx.HTTPError, ValueError):
-            return None
+        occupancy = {"adult": q("adult", "2"), "child": q("child", "[]"), "airports[]": q("airports[]", "TLV")}
 
-        hotels = (graph.get("data") or {}).get("hotel") or {}
-        if not hotels:
-            return None
-        dates = next(iter(hotels.values())).get("dates") or []
-        priced = [e for e in dates if isinstance(e.get("price"), (int, float)) and e["price"] > 0]
+        # The tracked month + the next few (wrap year-end).
+        months: list[tuple[int, int]] = []
+        year, month = parsed.check_in_date.year, parsed.check_in_date.month
+        for _ in range(_MONTHS_TO_SCAN):
+            months.append((year, month))
+            month = month + 1 if month < 12 else 1
+            year = year if month != 1 else year + 1
+
+        fetched = await asyncio.gather(
+            *(self._month_dates(hf_offer_id, board, luggage, duration, y, m, occupancy) for y, m in months),
+            return_exceptions=True,
+        )
+        priced = [e for res in fetched if isinstance(res, list) for e in res]
         if not priced:
             return None
 
         baseline = next((e["price"] for e in priced if e.get("start") == user_start), float(current_price))
         cheapest = min(priced, key=lambda e: e["price"])
         if cheapest.get("start") == user_start:
-            return None  # the user's dates are already the cheapest
+            return None  # the user's dates are already the cheapest in the window
         savings = baseline - cheapest["price"]
         if savings < max(50, baseline * 0.03):  # only suggest a meaningful saving
             return None
@@ -189,6 +180,31 @@ class HolidayFinderAdapter(BaseProviderAdapter):
             "url": cheapest.get("packageDeeplinkUrl") or cheapest.get("packageDeeplinkUrlLegacy"),
             "savings": round(savings),
         }
+
+    async def _month_dates(
+        self, hf_offer_id: str, board: str, luggage: str, duration: int, year: int, month: int, occupancy: dict
+    ) -> list[dict]:
+        """Fetch one month of hotel-graph date→price points (priced entries only)."""
+        data = {
+            "currency": "USD",
+            "hotelBoard": board,
+            "when": {"month": month, "year": year, "duration": duration},
+            "luggage": luggage,
+            "hfOfferId": hf_offer_id,
+        }
+        params = {
+            "data": json.dumps(data),
+            **occupancy,
+            "lang": "he",
+            "muid": uuid.uuid4().hex,
+            "tt": str(int(time.time() * 1000)),
+        }
+        graph = await get_json(_GRAPH_URL, params=params, headers=_HEADERS, proxy=settings.proxy_url or None)
+        hotels = (graph.get("data") or {}).get("hotel") or {}
+        if not hotels:
+            return []
+        dates = next(iter(hotels.values())).get("dates") or []
+        return [e for e in dates if isinstance(e.get("price"), (int, float)) and e["price"] > 0]
 
 
 def _luggage_tier(bc: str) -> str | None:
