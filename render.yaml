@@ -27,6 +27,10 @@ services:
           property: connectionString
       - key: PRICE_DROP_THRESHOLD
         value: "0.02"
+      # Auto-generated secret protecting /api/cron/check-prices. Copy its value
+      # into the GitHub repo secret CRON_SECRET (for the daily Action).
+      - key: CRON_SECRET
+        generateValue: true
       # Set to the deployed web URL after first deploy (e.g. https://tripstalker-web.onrender.com)
       - key: FRONTEND_ORIGIN
         sync: false
@@ -47,23 +51,9 @@ services:
         source: /*
         destination: /index.html
 
-  # --- Daily price-check worker (Cron) ---
-  # NOTE: Render cron jobs are a paid feature. On the free plan, either omit this
-  # block and trigger `python worker.py` manually / from an external scheduler,
-  # or upgrade the cron service to a paid instance.
-  - type: cron
-    name: tripstalker-worker
-    runtime: python
-    rootDir: backend
-    schedule: "0 8 * * *" # every day at 08:00 UTC
-    buildCommand: pip install -r requirements.txt
-    startCommand: python worker.py
-    envVars:
-      - key: PYTHON_VERSION
-        value: "3.12.8"
-      - key: DATABASE_URL
-        fromDatabase:
-          name: tripstalker-db
-          property: connectionString
-      - key: PRICE_DROP_THRESHOLD
-        value: "0.02"
+  # --- Daily price check ---
+  # Render Cron Jobs are a PAID feature, so this blueprint intentionally omits
+  # one. The free alternative is the GitHub Action at
+  # .github/workflows/daily-price-check.yml, which calls the API's
+  # /api/cron/check-prices endpoint once a day. To use Render's native cron
+  # instead, add a `type: cron` service running `python worker.py`.

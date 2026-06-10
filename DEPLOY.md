@@ -25,16 +25,26 @@ After setting them, trigger a redeploy of each service (the frontend must be
 
 Your live app is then the `tripstalker-web` URL — open it from any device. 🎉
 
+## Daily price check — free, via GitHub Actions
+
+Render Cron is paid, so the daily check runs as a **free GitHub Action**
+(`.github/workflows/daily-price-check.yml`) that calls the API's
+`/api/cron/check-prices` endpoint. Set two repo secrets so it can authenticate:
+
+1. In Render, open the `tripstalker-api` service → **Environment** → copy the
+   auto-generated **`CRON_SECRET`** value.
+2. In GitHub: repo **Settings → Secrets and variables → Actions → New secret**,
+   add two secrets:
+   - `API_URL`     = your API URL, e.g. `https://tripstalker-api.onrender.com`
+   - `CRON_SECRET` = the value copied from Render
+3. (Optional) Test it now: repo **Actions → Daily price check → Run workflow**.
+
 ## Free-tier caveats (good to know)
 
 - **Cold starts:** free web services sleep after ~15 min idle; the first request
-  then takes a few seconds to wake.
+  then takes a few seconds to wake (the Action allows up to 120s for this).
 - **Database lifetime:** Render's free PostgreSQL is time-limited — back up or
   upgrade before it expires if you want to keep data.
-- **Cron worker:** Render Cron Jobs are a **paid** feature. On the free plan you
-  can drop the `tripstalker-worker` block and instead run the daily check via an
-  external scheduler (e.g. GitHub Actions, cron-job.org hitting a small trigger
-  endpoint) or manually with `python worker.py`.
 
 ## Alternatives
 

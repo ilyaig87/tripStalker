@@ -1,0 +1,30 @@
+name: Daily price check
+
+# Free replacement for Render's paid Cron: hits the deployed API's
+# /api/cron/check-prices endpoint once a day. You can also run it manually
+# from the Actions tab ("Run workflow").
+on:
+  schedule:
+    - cron: "0 8 * * *" # every day at 08:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  check-prices:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger price check
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::Set the API_URL repo secret to your Render API URL (e.g. https://tripstalker-api.onrender.com)"
+            exit 1
+          fi
+          echo "Calling $API_URL/api/cron/check-prices ..."
+          # --fail makes the step error on a non-2xx response; -m caps the wait
+          # (Render free instances may cold-start, so allow generous time).
+          curl --fail --show-error --silent -m 120 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "$API_URL/api/cron/check-prices"
+          echo "\nDone."
