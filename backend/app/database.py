@@ -48,6 +48,7 @@ _ADDED_COLUMNS = {
     "available": {"sqlite": "BOOLEAN DEFAULT 1", "postgresql": "BOOLEAN DEFAULT TRUE"},
     "failed_checks": {"sqlite": "INTEGER DEFAULT 0", "postgresql": "INTEGER DEFAULT 0"},
     "last_error": {"sqlite": "VARCHAR(500)", "postgresql": "VARCHAR(500)"},
+    "last_checked_at": {"sqlite": "TIMESTAMP", "postgresql": "TIMESTAMPTZ"},
 }
 
 

@@ -540,6 +540,11 @@ body::before {
 .price-reg {
   color: var(--ink-faint);
 }
+.checked-at {
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
 
 /* delta chip — both directions */
 .delta {

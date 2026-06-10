@@ -38,6 +38,7 @@ class TrackOut(BaseModel):
     status: TrackStatus
     available: bool = True
     last_error: str | None = None
+    last_checked_at: datetime | None = None
     created_at: datetime
 
 

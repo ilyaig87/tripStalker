@@ -45,6 +45,17 @@ function nights(a: string | null, b: string | null) {
   return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);
 }
 
+// "נבדק לפני 3 ש׳" — relative time of the last price check
+function lastChecked(iso: string | null) {
+  if (!iso) return "טרם נבדק";
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (min < 1) return "נבדק כעת";
+  if (min < 60) return `נבדק לפני ${min} ד׳`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `נבדק לפני ${hr} ש׳`;
+  return `נבדק לפני ${Math.round(hr / 24)} י׳`;
+}
+
 // "2-adults,1-children" -> { persons, label }
 function occupancy(cfg: string | null) {
   if (!cfg) return { persons: 1, label: "" };
@@ -352,6 +363,7 @@ export default function App() {
                       {perPax && <>{perPax} לאדם · </>}
                       <span className="price-reg">נרשם ב-{money(t.initial_price, t.currency)}</span>
                     </div>
+                    <div className="checked-at">🕐 {lastChecked(t.last_checked_at)}</div>
                   </div>
 
                   <a className="offer-link" href={t.raw_url} target="_blank" rel="noreferrer">

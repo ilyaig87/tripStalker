@@ -1,0 +1,24 @@
+name: Keep API awake
+
+# Render free web services sleep after ~15 min idle. This pings /health on a
+# schedule so the API stays warm (no cold start on the first real request).
+# Free on a public repo. Note: GitHub's scheduler can be delayed under load —
+# for tighter guarantees use an uptime pinger (see DEPLOY.md).
+on:
+  schedule:
+    - cron: "*/14 * * * *" # roughly every 14 minutes
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::Set the API_URL repo secret to your Render API URL"
+            exit 1
+          fi
+          curl --fail --show-error --silent -m 60 "$API_URL/health" && echo "\nawake"

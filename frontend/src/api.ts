@@ -18,6 +18,7 @@ export interface Track {
   status: TrackStatus;
   available: boolean;
   last_error: string | null;
+  last_checked_at: string | null;
   created_at: string;
 }
 

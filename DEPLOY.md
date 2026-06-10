@@ -45,10 +45,20 @@ Render Cron is paid, so the daily check runs as a **free GitHub Action**
    - `CRON_SECRET` = the value copied from Render
 3. (Optional) Test it now: repo **Actions → Daily price check → Run workflow**.
 
+## Keep the API awake (avoid cold starts) — free
+
+`.github/workflows/keep-alive.yml` pings `/health` every ~14 min so the free
+Render service doesn't sleep. It only needs the `API_URL` secret (already set
+above). This stays within Render's free hours for a single service.
+
+> GitHub's scheduler can be delayed under load. For a tighter guarantee, use a
+> free uptime pinger like **UptimeRobot** (5-min interval) pointed at
+> `<API_URL>/health` instead of (or alongside) the keep-alive Action.
+
 ## Free-tier caveats (good to know)
 
 - **Cold starts:** free web services sleep after ~15 min idle; the first request
-  then takes a few seconds to wake (the Action allows up to 120s for this).
+  then takes a few seconds to wake (the keep-alive Action mitigates this).
 - **Database lifetime:** Render's free PostgreSQL is time-limited — back up or
   upgrade before it expires if you want to keep data.
 

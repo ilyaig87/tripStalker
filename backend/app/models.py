@@ -73,6 +73,7 @@ class TrackedItem(Base):
     available: Mapped[bool] = mapped_column(default=True)
     failed_checks: Mapped[int] = mapped_column(default=0)
     last_error: Mapped[str | None] = mapped_column(String(500))
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

@@ -5,6 +5,7 @@ the two entry points can never drift apart.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -39,6 +40,7 @@ def _parsed_from_item(item: TrackedItem) -> ParsedUrl:
 async def check_one(db: Session, item: TrackedItem) -> dict | None:
     """Check a single track. Returns a summary dict if a drop was triggered."""
     adapter = get_adapter(item.provider)
+    item.last_checked_at = datetime.now(timezone.utc)
     try:
         result = await adapter.fetch_current_price(_parsed_from_item(item))
     except ProviderError as exc:

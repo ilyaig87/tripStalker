@@ -24,6 +24,7 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 
+from app.adapters._http import get_json
 from app.adapters.base import BaseProviderAdapter, PriceResult, ProviderError
 from app.config import settings
 from app.url_parser import ParsedUrl
@@ -66,12 +67,13 @@ class HolidayFinderAdapter(BaseProviderAdapter):
             "tt": str(int(time.time() * 1000)),  # cache-buster
         }
 
-        proxy = settings.proxy_url or None
         try:
-            async with httpx.AsyncClient(timeout=30, proxy=proxy, follow_redirects=True) as client:
-                resp = await client.get(f"{_API_BASE}/{bc}", params=params, headers=_HEADERS)
-                resp.raise_for_status()
-                data = resp.json()
+            data = await get_json(
+                f"{_API_BASE}/{bc}",
+                params=params,
+                headers=_HEADERS,
+                proxy=settings.proxy_url or None,
+            )
         except (httpx.HTTPError, ValueError) as exc:
             raise ProviderError(f"HolidayFinder fetch failed: {exc}") from exc
 
