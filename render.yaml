@@ -1,0 +1,69 @@
+# Render.com Blueprint — provisions the whole TripStalker stack from this repo.
+# Deploy: render.com -> New -> Blueprint -> connect this GitHub repo -> Apply.
+# After the first deploy, set the two `sync: false` env vars (see DEPLOY.md).
+
+databases:
+  - name: tripstalker-db
+    plan: free
+    databaseName: tripstalker
+    user: tripstalker
+
+services:
+  # --- Backend API (FastAPI) ---
+  - type: web
+    name: tripstalker-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tripstalker-db
+          property: connectionString
+      - key: PRICE_DROP_THRESHOLD
+        value: "0.02"
+      # Set to the deployed web URL after first deploy (e.g. https://tripstalker-web.onrender.com)
+      - key: FRONTEND_ORIGIN
+        sync: false
+
+  # --- Frontend (React/Vite static build) ---
+  - type: web
+    name: tripstalker-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      # Set to the deployed API URL after first deploy (e.g. https://tripstalker-api.onrender.com)
+      - key: VITE_API_BASE
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # --- Daily price-check worker (Cron) ---
+  # NOTE: Render cron jobs are a paid feature. On the free plan, either omit this
+  # block and trigger `python worker.py` manually / from an external scheduler,
+  # or upgrade the cron service to a paid instance.
+  - type: cron
+    name: tripstalker-worker
+    runtime: python
+    rootDir: backend
+    schedule: "0 8 * * *" # every day at 08:00 UTC
+    buildCommand: pip install -r requirements.txt
+    startCommand: python worker.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tripstalker-db
+          property: connectionString
+      - key: PRICE_DROP_THRESHOLD
+        value: "0.02"

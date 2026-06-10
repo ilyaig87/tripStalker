@@ -6,10 +6,25 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
 
-# `check_same_thread` is only needed for SQLite; harmless to compute conditionally.
-connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
 
-engine = create_engine(settings.database_url, connect_args=connect_args, pool_pre_ping=True)
+def _normalize_db_url(url: str) -> str:
+    """Managed Postgres providers (Render, Heroku, Supabase) hand out
+    `postgres://` / `postgresql://` URLs. SQLAlchemy + psycopg3 needs the
+    explicit `postgresql+psycopg://` driver prefix.
+    """
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
+DATABASE_URL = _normalize_db_url(settings.database_url)
+
+# `check_same_thread` is only needed for SQLite; harmless to compute conditionally.
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

@@ -19,7 +19,9 @@ export interface Track {
   created_at: string;
 }
 
-const BASE = ""; // same origin; Vite proxies /api -> backend in dev
+// In dev: empty -> Vite proxies /api to the backend (see vite.config.ts).
+// In prod: set VITE_API_BASE (e.g. https://tripstalker-api.onrender.com) at build time.
+const BASE = import.meta.env.VITE_API_BASE ?? "";
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
