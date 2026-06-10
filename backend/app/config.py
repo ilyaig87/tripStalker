@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # --- Cron auth (Vercel Cron sends "Authorization: Bearer <CRON_SECRET>") ---
     cron_secret: str = ""
 
+    # --- Telegram notifications (free). Create a bot via @BotFather. ---
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

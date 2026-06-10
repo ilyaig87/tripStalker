@@ -28,6 +28,72 @@
 
   --gold: #b6862c;
   --shadow: 26 22 18;
+
+  --glow-1: #fbf6ea;
+  --glow-2: #efe6d3;
+  --field: #fcfaf3;
+  --field-focus: #ffffff;
+  --on-accent: #fdf8ec;
+}
+
+/* ===== Theme: Midnight (dark, gold accent) ===== */
+[data-theme="midnight"] {
+  --cream: #13161e;
+  --cream-deep: #1e2230;
+  --paper: #191d27;
+  --ink: #eef1f7;
+  --ink-soft: #99a2b3;
+  --ink-faint: #677084;
+  --line: #272d3b;
+  --line-strong: #38404f;
+
+  --teal: #e3b657;
+  --teal-deep: #c89a3a;
+  --teal-tint: #272317;
+
+  --down: #48cd8c;
+  --down-tint: #15271e;
+  --up: #f0735f;
+  --up-tint: #2c1a17;
+
+  --gold: #e3b657;
+  --shadow: 0 0 0;
+
+  --glow-1: #1d2435;
+  --glow-2: #241d12;
+  --field: #11141b;
+  --field-focus: #161a23;
+  --on-accent: #14171f;
+}
+
+/* ===== Theme: Sunset (warm coral) ===== */
+[data-theme="sunset"] {
+  --cream: #fdf2e8;
+  --cream-deep: #f7e1cf;
+  --paper: #fffaf4;
+  --ink: #3a2317;
+  --ink-soft: #8a6a55;
+  --ink-faint: #c2a48d;
+  --line: #f0dcc8;
+  --line-strong: #e6c8ad;
+
+  --teal: #d2603a;
+  --teal-deep: #b54a28;
+  --teal-tint: #fbe6dc;
+
+  --down: #2f8f63;
+  --down-tint: #e3f1e8;
+  --up: #c0392b;
+  --up-tint: #fae2dd;
+
+  --gold: #e09a3c;
+  --shadow: 38 20 12;
+
+  --glow-1: #ffe8d1;
+  --glow-2: #ffd7bd;
+  --field: #fff6ee;
+  --field-focus: #ffffff;
+  --on-accent: #fffaf4;
 }
 
 * {
@@ -44,11 +110,12 @@ body {
   background: var(--cream);
   color: var(--ink);
   font-family: "Assistant", system-ui, sans-serif;
-  /* layered warmth: two soft radials over the cream */
+  /* layered warmth: two soft radials, theme-aware */
   background-image:
-    radial-gradient(900px 500px at 100% -10%, #fbf6ea 0%, rgba(251, 246, 234, 0) 60%),
-    radial-gradient(800px 600px at -10% 110%, #efe6d3 0%, rgba(239, 230, 211, 0) 55%);
+    radial-gradient(900px 500px at 100% -10%, var(--glow-1) 0%, transparent 60%),
+    radial-gradient(800px 600px at -10% 110%, var(--glow-2) 0%, transparent 55%);
   background-attachment: fixed;
+  transition: background-color 0.35s ease;
 }
 
 /* fine paper grain over everything */
@@ -80,10 +147,39 @@ body::before {
 }
 
 /* ---- header ---- */
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
 .brand {
   display: flex;
   align-items: center;
   gap: 0.85rem;
+}
+
+/* theme picker */
+.theme-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  border: 2px solid var(--line-strong);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+.swatch:hover {
+  transform: scale(1.12);
+}
+.swatch[aria-pressed="true"] {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--cream), 0 0 0 4px var(--ink);
 }
 .brand-mark {
   display: grid;
@@ -92,8 +188,9 @@ body::before {
   height: 3rem;
   border-radius: 0.9rem;
   background: var(--teal);
-  color: #fdf8ec;
-  box-shadow: 0 10px 22px -10px rgba(21, 96, 90, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  color: var(--on-accent);
+  box-shadow: 0 10px 22px -10px color-mix(in srgb, var(--teal) 70%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
   transform: rotate(-4deg);
 }
 .brand-title {
@@ -160,7 +257,7 @@ body::before {
 }
 .input {
   width: 100%;
-  background: #fcfaf3;
+  background: var(--field);
   border: 1px solid var(--line-strong);
   border-radius: 0.7rem;
   padding: 0.62rem 0.8rem;
@@ -175,14 +272,14 @@ body::before {
 }
 .input:focus {
   border-color: var(--teal);
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(21, 96, 90, 0.13);
+  background: var(--field-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 22%, transparent);
 }
 .btn-primary {
   border: 0;
   cursor: pointer;
   background: var(--teal);
-  color: #fdf8ec;
+  color: var(--on-accent);
   font: inherit;
   font-weight: 700;
   font-size: 0.98rem;

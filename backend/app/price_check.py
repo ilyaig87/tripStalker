@@ -71,6 +71,7 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
             old_price=baseline,
             new_price=result.price,
             currency=result.currency,
+            link=item.raw_url,
         )
         item.status = TrackStatus.TRIGGERED
         db.commit()

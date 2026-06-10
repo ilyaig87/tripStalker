@@ -20,6 +20,12 @@ const PROVIDER_LABEL: Record<string, string> = {
   booking: "Booking",
 };
 
+const THEMES = [
+  { id: "beach", label: "חוף", swatch: "#15605a" },
+  { id: "midnight", label: "חצות", swatch: "#e3b657" },
+  { id: "sunset", label: "שקיעה", swatch: "#d2603a" },
+] as const;
+
 function sym(currency: string) {
   return currency === "USD" ? "$" : currency === "ILS" ? "₪" : "";
 }
@@ -105,6 +111,12 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<string>(() => localStorage.getItem("ts_theme") || "beach");
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("ts_theme", theme);
+  }, [theme]);
 
   async function refresh(forEmail: string) {
     if (!forEmail) return;
@@ -166,13 +178,28 @@ export default function App() {
     <div dir="rtl" className="wrap font-body">
       {/* header */}
       <header>
-        <div className="brand">
-          <span className="brand-mark">
-            <PlaneMark />
-          </span>
-          <h1 className="brand-title font-display">
-            Trip<span className="brand-accent">Stalker</span>
-          </h1>
+        <div className="header-top">
+          <div className="brand">
+            <span className="brand-mark">
+              <PlaneMark />
+            </span>
+            <h1 className="brand-title font-display">
+              Trip<span className="brand-accent">Stalker</span>
+            </h1>
+          </div>
+          <div className="theme-picker" role="group" aria-label="ערכת עיצוב">
+            {THEMES.map((th) => (
+              <button
+                key={th.id}
+                type="button"
+                className="swatch"
+                title={th.label}
+                aria-pressed={theme === th.id}
+                style={{ background: th.swatch }}
+                onClick={() => setTheme(th.id)}
+              />
+            ))}
+          </div>
         </div>
         <p className="tagline">הדביקו קישור למלון או חבילת נופש — ואנחנו נשגיח על המחיר במקומכם.</p>
 
