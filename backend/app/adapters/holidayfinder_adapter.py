@@ -77,9 +77,10 @@ class HolidayFinderAdapter(BaseProviderAdapter):
         except (httpx.HTTPError, ValueError) as exc:
             raise ProviderError(f"HolidayFinder fetch failed: {exc}") from exc
 
-        return self._extract_price(data, parsed)
+        # The luggage choice is encoded in the bc as ...st<n>:<tier>:<board>.
+        return self._extract_price(data, parsed, luggage_tier=_luggage_tier(bc))
 
-    def _extract_price(self, data: dict, parsed: ParsedUrl) -> PriceResult:
+    def _extract_price(self, data: dict, parsed: ParsedUrl, luggage_tier: str | None = None) -> PriceResult:
         rate = (data.get("data") or {}).get("recommendedRate") or {}
         rate_include = rate.get("rateInclude") or {}
         total = rate_include.get("total_price")
@@ -89,11 +90,34 @@ class HolidayFinderAdapter(BaseProviderAdapter):
                 "(offer may be sold out or the API shape changed)"
             )
 
+        # The base total_price always uses the "naked" (no-luggage) flight. If the
+        # user selected a luggage tier in their link, add the difference between
+        # that tier and the naked flight (both `price_with_markup_all_pax`, USD).
+        luggage_added = 0
+        if luggage_tier in {"withTrolley", "withCib", "withBoth"}:
+            group = next(iter((rate.get("flightRateOptions") or {}).values()), {})
+            naked = (group.get("naked") or {}).get("price_with_markup_all_pax")
+            chosen = (group.get(luggage_tier) or {}).get("price_with_markup_all_pax")
+            if isinstance(naked, (int, float)) and isinstance(chosen, (int, float)):
+                luggage_added = chosen - naked
+
+        final = total + luggage_added
         per_pax = rate_include.get("total_price_per_pax")
         hotel = (rate.get("hotel") or {}).get("name") or f"HolidayFinder offer #{parsed.target_hotel_id_or_name}"
         return PriceResult(
-            price=Decimal(str(total)).quantize(Decimal("1.00")),
+            price=Decimal(str(final)).quantize(Decimal("1.00")),
             currency="USD",  # the site quotes packages in USD
             hotel_name=hotel,
-            raw={"total_price": total, "total_price_per_pax": per_pax},
+            raw={
+                "base_total_price": total,
+                "luggage_tier": luggage_tier,
+                "luggage_added": luggage_added,
+                "total_price_per_pax": per_pax,
+            },
         )
+
+
+def _luggage_tier(bc: str) -> str | None:
+    """Pull the luggage tier from a booking code like '...st1:withTrolley:AI'."""
+    parts = bc.split(":")
+    return parts[1] if len(parts) >= 2 else None
