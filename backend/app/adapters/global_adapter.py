@@ -4,17 +4,19 @@ MVP strategy: do NOT scrape Booking directly (heavy WAF/bot protection).
 Instead call a third-party aggregator API (RapidAPI Booking, Travelpayouts,
 Hotellook, etc.) to fetch the current lowest price.
 
-This file ships a MOCK implementation that returns a deterministic, slightly
-fluctuating price so the full pipeline is runnable end-to-end without API keys.
-Swap `_mock_price` for `_live_price` once you wire a real key in `.env`.
+With `RAPIDAPI_KEY` set it calls the apidojo "Booking.com" API for real prices
+(`_live_price`); without a key it returns a deterministic mock so the pipeline
+is still runnable end-to-end. The switch is automatic in `fetch_current_price`.
 """
 from __future__ import annotations
 
 import hashlib
 from decimal import Decimal
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
+from app.adapters._http import get_json
 from app.adapters.base import BaseProviderAdapter, PriceResult, ProviderError
 from app.config import settings
 from app.url_parser import ParsedUrl
@@ -49,43 +51,86 @@ class GlobalAdapter(BaseProviderAdapter):
 
     # ------------------------------------------------------------------ live
     async def _live_price(self, parsed: ParsedUrl) -> PriceResult:
-        """Example RapidAPI 'Booking.com' call. Adjust path/params to your plan.
+        """Real Booking price via RapidAPI (apidojo 'Booking.com', USD).
 
-        NOTE: each RapidAPI provider has its own schema — treat this as a template.
+        Flow: resolve a destination id (from the URL's dest_id, or by looking up
+        the city name) -> search hotels for the dates/occupancy -> pick the user's
+        specific hotel (matched by the URL slug) or the cheapest one.
         """
-        url = f"https://{settings.rapidapi_host}/v1/hotels/search"
-        headers = {
-            "X-RapidAPI-Key": settings.rapidapi_key,
-            "X-RapidAPI-Host": settings.rapidapi_host,
-        }
+        host = settings.rapidapi_host
+        headers = {"X-RapidAPI-Key": settings.rapidapi_key, "X-RapidAPI-Host": host}
+        proxy = settings.proxy_url or None
+        qs = parse_qs(urlparse(parsed.raw_url).query)
+
+        def q(*keys: str, default: str | None = None) -> str | None:
+            for k in keys:
+                if qs.get(k):
+                    return qs[k][0]
+            return default
+
+        checkin = q("checkin", "checkin_date") or (str(parsed.check_in_date) if parsed.check_in_date else None)
+        checkout = q("checkout", "checkout_date") or (str(parsed.check_out_date) if parsed.check_out_date else None)
+        if not (checkin and checkout):
+            raise ProviderError("Booking URL is missing check-in/check-out dates")
+        adults = q("group_adults", "adults", "adults_number") or _adults_from(parsed.room_config)
+
+        # 1) Resolve the destination id.
+        dest_id = q("dest_id")
+        dest_type = q("dest_type", default="city")
+        if not dest_id:
+            city = q("ss", "city", "dest") or parsed.destination
+            if not city:
+                raise ProviderError("Could not determine Booking destination from the URL")
+            try:
+                locs = await get_json(
+                    f"https://{host}/v1/hotels/locations",
+                    params={"name": city, "locale": "en-gb"},
+                    headers=headers,
+                    proxy=proxy,
+                )
+            except (httpx.HTTPError, ValueError) as exc:
+                raise ProviderError(f"Booking location lookup failed: {exc}") from exc
+            match = next((l for l in locs if l.get("dest_type") == "city"), locs[0] if locs else None)
+            if not match:
+                raise ProviderError(f"Booking has no destination matching {city!r}")
+            dest_id, dest_type = match["dest_id"], match.get("dest_type", "city")
+
+        # 2) Search hotels.
         params = {
-            "dest_id": parsed.destination,
-            "checkin_date": str(parsed.check_in_date),
-            "checkout_date": str(parsed.check_out_date),
-            "adults_number": _adults_from(parsed.room_config),
+            "dest_id": dest_id,
+            "dest_type": dest_type,
+            "checkin_date": checkin,
+            "checkout_date": checkout,
+            "adults_number": adults,
+            "room_number": "1",
             "order_by": "price",
-            "units": "metric",
+            "filter_by_currency": "USD",
             "locale": "en-gb",
-            "currency": "USD",
+            "units": "metric",
+            "page_number": "0",
         }
         try:
-            async with httpx.AsyncClient(timeout=20) as client:
-                resp = await client.get(url, headers=headers, params=params)
-                resp.raise_for_status()
-                data = resp.json()
-        except (httpx.HTTPError, ValueError) as exc:  # network or JSON error
-            raise ProviderError(f"GlobalAdapter live fetch failed: {exc}") from exc
+            data = await get_json(f"https://{host}/v1/hotels/search", params=params, headers=headers, proxy=proxy)
+        except (httpx.HTTPError, ValueError) as exc:
+            raise ProviderError(f"Booking search failed: {exc}") from exc
 
-        results = data.get("result") or []
+        results = [h for h in (data.get("result") or []) if h.get("min_total_price") is not None]
         if not results:
-            raise ProviderError("No hotels returned for the given parameters")
+            raise ProviderError("No Booking hotels available for the given dates")
 
-        cheapest = min(results, key=lambda h: h.get("min_total_price", float("inf")))
+        # 3) Prefer the user's specific hotel (slug -> name match); else cheapest.
+        slug = (parsed.target_hotel_id_or_name or "").replace("-", " ").lower()
+        chosen = None
+        if slug:
+            chosen = next((h for h in results if slug in (h.get("hotel_name") or "").lower()), None)
+        if chosen is None:
+            chosen = min(results, key=lambda h: h["min_total_price"])
+
         return PriceResult(
-            price=Decimal(str(cheapest["min_total_price"])).quantize(Decimal("1.00")),
-            currency=cheapest.get("currencycode", "USD"),
-            hotel_name=cheapest.get("hotel_name"),
-            raw=cheapest,
+            price=Decimal(str(chosen["min_total_price"])).quantize(Decimal("1.00")),
+            currency="USD",
+            hotel_name=chosen.get("hotel_name"),
+            raw={"hotel_id": chosen.get("hotel_id"), "matched_specific": chosen is not None and bool(slug)},
         )
 
 
