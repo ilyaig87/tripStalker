@@ -39,12 +39,12 @@ def notify_price_drop(
     _send_telegram("\n".join(lines))
 
 
-def _send_telegram(text: str) -> None:
+def _send_telegram(text: str) -> bool:
     token = settings.telegram_bot_token
     chat_id = settings.telegram_chat_id
     if not (token and chat_id):
         print(f"[NOTIFY] {text}")  # fallback when Telegram isn't configured
-        return
+        return False
     try:
         resp = httpx.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
@@ -57,5 +57,17 @@ def _send_telegram(text: str) -> None:
             timeout=10,
         )
         resp.raise_for_status()
+        return True
     except httpx.HTTPError as exc:
         logger.warning("Telegram send failed: %s", exc)
+        return False
+
+
+def send_test_message() -> dict:
+    """Send a sample Telegram message to confirm the bot is wired up."""
+    if not (settings.telegram_bot_token and settings.telegram_chat_id):
+        return {"configured": False, "sent": False}
+    sent = _send_telegram(
+        "✅ <b>TripStalker</b>\nההתראות מוגדרות ועובדות! מעכשיו תקבל כאן הודעה בכל ירידת מחיר. ✈️"
+    )
+    return {"configured": True, "sent": sent}

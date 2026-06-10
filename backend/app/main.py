@@ -11,6 +11,7 @@ from app import crud
 from app.adapters import ProviderError, get_adapter, supported_providers
 from app.config import settings
 from app.database import get_db, init_db
+from app.notifications import send_test_message
 from app.price_check import run_price_checks, run_price_checks_for_email
 from app.schemas import TrackCreate, TrackDetailOut, TrackOut
 from app.url_parser import parse_url
@@ -36,6 +37,12 @@ app.add_middleware(
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "providers": supported_providers()}
+
+
+@app.post("/api/telegram/test")
+def telegram_test() -> dict:
+    """Send a sample Telegram message to verify notifications are configured."""
+    return send_test_message()
 
 
 @app.post("/api/track", response_model=TrackOut, status_code=201)
