@@ -2,10 +2,17 @@ import { useEffect, useState } from "react";
 import { createTrack, deleteTrack, listTracks, type Track } from "./api";
 
 const STATUS = {
-  Active: { label: "במעקב", cls: "bg-blue-100 text-blue-700" },
-  Triggered: { label: "המחיר ירד!", cls: "bg-green-100 text-green-700" },
-  Expired: { label: "פג", cls: "bg-gray-200 text-gray-600" },
+  Active: { label: "במעקב", cls: "status--active" },
+  Triggered: { label: "ירידת מחיר!", cls: "status--triggered" },
+  Expired: { label: "פג תוקף", cls: "status--expired" },
 } as const;
+
+// status spine color (CSS var) per status
+const SPINE: Record<string, string> = {
+  Active: "var(--teal)",
+  Triggered: "var(--down)",
+  Expired: "var(--ink-faint)",
+};
 
 const PROVIDER_LABEL: Record<string, string> = {
   holidayfinder: "HolidayFinder",
@@ -13,10 +20,12 @@ const PROVIDER_LABEL: Record<string, string> = {
   booking: "Booking",
 };
 
+function sym(currency: string) {
+  return currency === "USD" ? "$" : currency === "ILS" ? "₪" : "";
+}
 function money(value: string | null, currency: string) {
   if (value === null) return "—";
-  const sym = currency === "USD" ? "$" : currency === "ILS" ? "₪" : "";
-  return `${sym}${Number(value).toLocaleString()}`;
+  return `${sym(currency)}${Number(value).toLocaleString()}`;
 }
 
 // "2026-09-15" -> "15.09"
@@ -25,14 +34,12 @@ function dm(iso: string | null) {
   const [, m, d] = iso.split("-");
   return `${d}.${m}`;
 }
-
 function nights(a: string | null, b: string | null) {
   if (!a || !b) return null;
-  const ms = new Date(b).getTime() - new Date(a).getTime();
-  return Math.round(ms / 86_400_000);
+  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);
 }
 
-// "2-adults,1-children" -> { persons: 3, label: "2 מבוגרים · 1 ילד" }
+// "2-adults,1-children" -> { persons, label }
 function occupancy(cfg: string | null) {
   if (!cfg) return { persons: 1, label: "" };
   let persons = 0;
@@ -48,13 +55,46 @@ function occupancy(cfg: string | null) {
   return { persons: persons || 1, label: parts.join(" · ") };
 }
 
-function Detail({ icon, label, value }: { icon: string; label: string; value: string }) {
+type Delta = { dir: "up" | "down" | "flat"; amount: string; pct: string };
+
+function priceDelta(initial: string | null, current: string | null): Delta | null {
+  if (initial === null || current === null) return null;
+  const i = Number(initial);
+  const c = Number(current);
+  if (!(i > 0)) return null;
+  const diff = c - i;
+  const amount = Math.abs(diff).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const pct = Math.abs((diff / i) * 100).toFixed(1);
+  if (diff < -0.5) return { dir: "down", amount, pct };
+  if (diff > 0.5) return { dir: "up", amount, pct };
+  return { dir: "flat", amount: "0", pct: "0" };
+}
+
+function Stat({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-base leading-none">{icon}</span>
-      <span className="text-slate-400">{label}:</span>
-      <span className="font-medium text-slate-700">{value}</span>
+    <div className="stat">
+      <span className="stat-ico">{icon}</span>
+      <span>
+        <span className="stat-label" style={{ display: "block" }}>
+          {label}
+        </span>
+        <span className="stat-val">{value}</span>
+      </span>
     </div>
+  );
+}
+
+function PlaneMark() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M2.5 13.5l19-8.5-4 18-5-6-5 3 0-4 9-7-12 4z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="0.6"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -103,142 +143,160 @@ export default function App() {
     await refresh(email);
   }
 
+  const dropped = tracks.filter((t) => {
+    const d = priceDelta(t.initial_price, t.current_price);
+    return d?.dir === "down";
+  }).length;
+
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-50 text-slate-800">
-      <div className="mx-auto max-w-3xl px-4 py-10">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">✈️ TripStalker</h1>
-          <p className="text-slate-500">הדבק לינק למלון או חבילת נופש — ואנחנו נעקוב אחרי המחיר.</p>
-        </header>
+    <div dir="rtl" className="wrap font-body">
+      {/* header */}
+      <header>
+        <div className="brand">
+          <span className="brand-mark">
+            <PlaneMark />
+          </span>
+          <h1 className="brand-title font-display">
+            Trip<span className="brand-accent">Stalker</span>
+          </h1>
+        </div>
+        <p className="tagline">הדביקו קישור למלון או חבילת נופש — ואנחנו נשגיח על המחיר במקומכם.</p>
 
-        <form onSubmit={onSubmit} className="mb-8 grid gap-3 rounded-xl bg-white p-5 shadow-sm sm:grid-cols-[1fr_1.6fr_auto]">
-          <input
-            type="email"
-            required
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
-          />
-          <input
-            type="url"
-            required
-            placeholder="הדבק כאן לינק (HolidayFinder / Booking / Travelist)"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-lg bg-blue-600 px-5 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "מוסיף…" : "עקוב אחרי המחיר"}
-          </button>
-        </form>
-
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
-        )}
-
-        <h2 className="mb-3 text-lg font-semibold">המעקבים שלי ({tracks.length})</h2>
-
-        {tracks.length === 0 && (
-          <div className="rounded-xl bg-white px-4 py-10 text-center text-slate-400 shadow-sm">
-            עדיין אין מעקבים. הדבק לינק למעלה כדי להתחיל.
+        {tracks.length > 0 && (
+          <div className="summary">
+            <span className="summary-item">
+              <span className="summary-num">{tracks.length}</span>
+              <span className="summary-label">מעקבים פעילים</span>
+            </span>
+            <span className="summary-item">
+              <span className="summary-num" style={{ color: dropped ? "var(--down)" : "var(--ink)" }}>
+                {dropped}
+              </span>
+              <span className="summary-label">ירדו במחיר</span>
+            </span>
           </div>
         )}
+      </header>
 
-        <div className="space-y-4">
-          {tracks.map((t) => {
+      {/* add form */}
+      <form onSubmit={onSubmit} className="panel">
+        <div
+          style={{
+            display: "grid",
+            gap: "0.85rem",
+            gridTemplateColumns: "minmax(0,1fr) minmax(0,1.7fr) auto",
+            alignItems: "end",
+          }}
+        >
+          <label className="field">
+            <span className="field-label">אימייל</span>
+            <input
+              className="input"
+              type="email"
+              required
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">קישור להצעה</span>
+            <input
+              className="input"
+              type="url"
+              required
+              placeholder="HolidayFinder · Booking · Travelist…"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+            />
+          </label>
+          <button className="btn-primary" type="submit" disabled={loading}>
+            {loading ? "מוסיף…" : "עקבו אחרי המחיר"}
+          </button>
+        </div>
+      </form>
+
+      {error && <div className="alert">{error}</div>}
+
+      <h2 className="section-label">המעקבים שלי</h2>
+
+      {tracks.length === 0 ? (
+        <div className="empty">עדיין אין מעקבים — הדביקו קישור למעלה כדי להתחיל ✈️</div>
+      ) : (
+        <div style={{ display: "grid", gap: "1.1rem" }}>
+          {tracks.map((t, idx) => {
             const { persons, label: occ } = occupancy(t.room_config);
-            const nightsCount = nights(t.check_in_date, t.check_out_date);
+            const n = nights(t.check_in_date, t.check_out_date);
             const perPax =
               t.current_price && persons > 1
-                ? (Number(t.current_price) / persons).toLocaleString(undefined, { maximumFractionDigits: 0 })
+                ? `${sym(t.currency)}${(Number(t.current_price) / persons).toLocaleString(undefined, {
+                    maximumFractionDigits: 0,
+                  })}`
                 : null;
+            const delta = priceDelta(t.initial_price, t.current_price);
             const st = STATUS[t.status] ?? STATUS.Active;
-            const sym = t.currency === "USD" ? "$" : t.currency === "ILS" ? "₪" : "";
-            const dropped =
-              t.current_price && t.initial_price && Number(t.current_price) < Number(t.initial_price);
-            const dropAmount = dropped
-              ? (Number(t.initial_price) - Number(t.current_price)).toLocaleString(undefined, { maximumFractionDigits: 0 })
-              : null;
-            const dropPct = dropped
-              ? ((1 - Number(t.current_price) / Number(t.initial_price)) * 100).toFixed(1)
-              : null;
 
             return (
-              <div key={t.id} className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-                {/* header row */}
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-                        {PROVIDER_LABEL[t.provider] ?? t.provider}
-                      </span>
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${st.cls}`}>
-                        {st.label}
-                      </span>
-                    </div>
-                    {t.hotel_name && (
-                      <div className="mt-1.5 font-semibold text-slate-800">{t.hotel_name}</div>
-                    )}
+              <article
+                key={t.id}
+                className="ticket reveal"
+                style={{ ["--spine" as string]: SPINE[t.status], animationDelay: `${idx * 70}ms` }}
+              >
+                <div className="ticket-head">
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                    <span className="badge">{PROVIDER_LABEL[t.provider] ?? t.provider}</span>
+                    <span className={`status ${st.cls}`}>{st.label}</span>
                   </div>
-                  <button
-                    onClick={() => onDelete(t.id)}
-                    className="shrink-0 text-sm text-slate-400 transition hover:text-red-600"
-                    title="מחק מעקב"
-                  >
-                    🗑 מחק
+                  <button className="delete-btn" onClick={() => onDelete(t.id)} title="מחיקה">
+                    הסר ✕
                   </button>
                 </div>
 
-                {/* search details — what the user searched for */}
-                <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                  {t.destination && <Detail icon="📍" label="יעד/שדה" value={t.destination} />}
-                  <Detail
+                <h3 className="hotel">
+                  {t.hotel_name || t.destination || PROVIDER_LABEL[t.provider] || "מעקב"}
+                </h3>
+
+                <div className="stats">
+                  {t.destination && <Stat icon="📍" label="יציאה" value={t.destination} />}
+                  <Stat
                     icon="📅"
                     label="תאריכים"
-                    value={`${dm(t.check_in_date)} → ${dm(t.check_out_date)}${nightsCount ? ` (${nightsCount} לילות)` : ""}`}
+                    value={`${dm(t.check_in_date)} – ${dm(t.check_out_date)}${n ? ` · ${n} ל׳` : ""}`}
                   />
-                  {occ && <Detail icon="👥" label="תפוסה" value={occ} />}
+                  {occ && <Stat icon="👥" label="תפוסה" value={occ} />}
                 </div>
 
-                {/* price + actions */}
-                <div className="flex flex-wrap items-end justify-between gap-3 border-t border-slate-100 pt-3">
-                  <div className="flex items-end gap-4">
-                    <div>
-                      <div className="text-2xl font-bold text-slate-900">
+                <div className="foot">
+                  <div>
+                    <div className="price-now">
+                      <span className="price-cur tnum">
                         {money(t.current_price, t.currency)}
-                        <span className="mr-1 text-sm font-normal text-slate-400"> סה״כ</span>
-                      </div>
-                      {perPax && (
-                        <div className="text-xs text-slate-500">
-                          {sym}{perPax} לאדם · נרשם ב-{money(t.initial_price, t.currency)}
-                        </div>
-                      )}
-                    </div>
-                    {dropAmount && (
-                      <span className="rounded-md bg-green-50 px-2 py-1 text-sm font-semibold text-green-700">
-                        ↓ ירד {sym}{dropAmount} ({dropPct}%)
+                        <small>סה״כ</small>
                       </span>
-                    )}
+                      {delta && delta.dir !== "flat" && (
+                        <span className={`delta delta--${delta.dir} tnum`}>
+                          {delta.dir === "down" ? "↓ ירד" : "↑ עלה"} {sym(t.currency)}
+                          {delta.amount} ({delta.pct}%)
+                        </span>
+                      )}
+                      {delta && delta.dir === "flat" && <span className="delta delta--flat">ללא שינוי</span>}
+                    </div>
+                    <div className="price-sub tnum">
+                      {perPax && <>{perPax} לאדם · </>}
+                      <span className="price-reg">נרשם ב-{money(t.initial_price, t.currency)}</span>
+                    </div>
                   </div>
-                  <a
-                    href={t.raw_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100"
-                  >
-                    🔗 פתח את ההצעה באתר
+
+                  <a className="offer-link" href={t.raw_url} target="_blank" rel="noreferrer">
+                    פתחו את ההצעה
+                    <span aria-hidden>↗</span>
                   </a>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
-      </div>
+      )}
     </div>
   );
 }

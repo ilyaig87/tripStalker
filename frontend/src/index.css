@@ -1,3 +1,478 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* =========================================================================
+   TripStalker — "warm editorial travel" theme
+   Cream paper · warm ink · sea-teal accent · stamp-red / pine-green deltas
+   Display: Frank Ruhl Libre (Hebrew serif) · Body: Assistant
+   ========================================================================= */
+:root {
+  --cream: #f5efe3;
+  --cream-deep: #ece2cf;
+  --paper: #fffdf8;
+  --ink: #221c16;
+  --ink-soft: #756758;
+  --ink-faint: #a89784;
+  --line: #e6dbc6;
+  --line-strong: #d8c9ac;
+
+  --teal: #15605a; /* brand / active */
+  --teal-deep: #103f3b;
+  --teal-tint: #e0ece9;
+
+  --down: #1c7a52; /* price dropped — good */
+  --down-tint: #e1f0e6;
+  --up: #b53a2b; /* price rose — bad */
+  --up-tint: #f8e6e1;
+
+  --gold: #b6862c;
+  --shadow: 26 22 18;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: "Assistant", system-ui, sans-serif;
+  /* layered warmth: two soft radials over the cream */
+  background-image:
+    radial-gradient(900px 500px at 100% -10%, #fbf6ea 0%, rgba(251, 246, 234, 0) 60%),
+    radial-gradient(800px 600px at -10% 110%, #efe6d3 0%, rgba(239, 230, 211, 0) 55%);
+  background-attachment: fixed;
+}
+
+/* fine paper grain over everything */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+.font-display {
+  font-family: "Frank Ruhl Libre", "Assistant", serif;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ---- layout ---- */
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 4rem) 1.25rem 5rem;
+}
+
+/* ---- header ---- */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.9rem;
+  background: var(--teal);
+  color: #fdf8ec;
+  box-shadow: 0 10px 22px -10px rgba(21, 96, 90, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transform: rotate(-4deg);
+}
+.brand-title {
+  font-size: clamp(2rem, 5vw, 2.7rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.brand-accent {
+  color: var(--teal);
+}
+.tagline {
+  margin-top: 0.5rem;
+  color: var(--ink-soft);
+  font-size: 1.02rem;
+  font-weight: 500;
+}
+
+/* ---- summary chips ---- */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.4rem;
+  margin-top: 1.4rem;
+  padding-top: 1.2rem;
+  border-top: 1px dashed var(--line-strong);
+}
+.summary-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.summary-num {
+  font-family: "Frank Ruhl Libre", serif;
+  font-weight: 700;
+  font-size: 1.35rem;
+}
+.summary-label {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+/* ---- add-form panel ---- */
+.panel {
+  margin-top: 1.75rem;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  padding: 1.15rem;
+  box-shadow: 0 22px 40px -32px rgba(var(--shadow), 0.55);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.field-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+.input {
+  width: 100%;
+  background: #fcfaf3;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.7rem;
+  padding: 0.62rem 0.8rem;
+  font: inherit;
+  font-size: 0.98rem;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.input::placeholder {
+  color: var(--ink-faint);
+}
+.input:focus {
+  border-color: var(--teal);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(21, 96, 90, 0.13);
+}
+.btn-primary {
+  border: 0;
+  cursor: pointer;
+  background: var(--teal);
+  color: #fdf8ec;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.98rem;
+  border-radius: 0.7rem;
+  padding: 0.62rem 1.3rem;
+  white-space: nowrap;
+  box-shadow: 0 12px 24px -14px rgba(21, 96, 90, 0.85);
+  transition: transform 0.12s, background 0.15s, box-shadow 0.15s;
+}
+.btn-primary:hover {
+  background: var(--teal-deep);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: translateY(0);
+}
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.alert {
+  margin-top: 1rem;
+  background: var(--up-tint);
+  color: var(--up);
+  border: 1px solid #eecbc3;
+  border-radius: 0.7rem;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.section-label {
+  margin: 2.2rem 0 1rem;
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+/* ---- ticket card ---- */
+.ticket {
+  position: relative;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  padding: 1.3rem 1.3rem 1.15rem;
+  overflow: hidden;
+  box-shadow: 0 20px 38px -30px rgba(var(--shadow), 0.55);
+  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.2s;
+}
+.ticket:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 30px 50px -28px rgba(var(--shadow), 0.6);
+}
+/* status spine on the inline-start edge */
+.ticket::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 5px;
+  background: var(--spine, var(--teal));
+}
+/* faint "boarding pass" perforation on the inline-end edge */
+.ticket::after {
+  content: "";
+  position: absolute;
+  inset-block: 14px;
+  inset-inline-end: 4.5rem;
+  width: 1px;
+  border-inline-end: 2px dotted var(--line-strong);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.ticket-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.badge {
+  display: inline-block;
+  font-family: ui-monospace, "SFMono-Regular", monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--cream-deep);
+  border-radius: 0.4rem;
+  padding: 0.18rem 0.5rem;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+}
+.status::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+.status--active {
+  color: var(--teal);
+  background: var(--teal-tint);
+}
+.status--triggered {
+  color: var(--down);
+  background: var(--down-tint);
+}
+.status--expired {
+  color: var(--ink-soft);
+  background: var(--cream-deep);
+}
+
+.hotel {
+  margin-top: 0.7rem;
+  font-family: "Frank Ruhl Libre", serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+/* ---- search details ---- */
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.6rem;
+  margin-top: 0.9rem;
+}
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.stat-ico {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.5rem;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+.stat-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+}
+.stat-val {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ---- price + actions ---- */
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.15rem;
+  padding-top: 1.05rem;
+  border-top: 1px solid var(--line);
+}
+.price-now {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.price-cur {
+  font-family: "Frank Ruhl Libre", serif;
+  font-weight: 900;
+  font-size: 2.1rem;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.price-cur small {
+  font-family: "Assistant", sans-serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  margin-inline-start: 0.25rem;
+}
+.price-sub {
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.price-reg {
+  color: var(--ink-faint);
+}
+
+/* delta chip — both directions */
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  border-radius: 0.55rem;
+  padding: 0.3rem 0.6rem;
+  white-space: nowrap;
+}
+.delta--down {
+  color: var(--down);
+  background: var(--down-tint);
+}
+.delta--up {
+  color: var(--up);
+  background: var(--up-tint);
+}
+.delta--flat {
+  color: var(--ink-soft);
+  background: var(--cream-deep);
+  font-weight: 700;
+}
+
+.offer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--teal);
+  background: var(--teal-tint);
+  border: 1px solid #cfe0dc;
+  border-radius: 0.7rem;
+  padding: 0.55rem 0.95rem;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.12s;
+}
+.offer-link:hover {
+  background: #d3e4e0;
+  transform: translateY(-1px);
+}
+
+.delete-btn {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.2rem 0.3rem;
+  transition: color 0.15s;
+}
+.delete-btn:hover {
+  color: var(--up);
+}
+
+.empty {
+  background: var(--paper);
+  border: 1px dashed var(--line-strong);
+  border-radius: 1.1rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: 1rem;
+}
+
+/* ---- staggered reveal on load ---- */
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.reveal {
+  animation: reveal 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    animation: none;
+  }
+}
