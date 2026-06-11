@@ -44,6 +44,7 @@ def create_track(
     hotel_portion: Decimal | None = None,
     flight_portion: Decimal | None = None,
     flight_details: str | None = None,
+    hotel_meta: str | None = None,
 ) -> TrackedItem:
     item = TrackedItem(
         user_id=user.id,
@@ -60,6 +61,7 @@ def create_track(
         hotel_portion=hotel_portion,
         flight_portion=flight_portion,
         flight_details=flight_details,
+        hotel_meta=hotel_meta,
         initial_price=initial_price,
         current_price=initial_price,
         currency=currency,

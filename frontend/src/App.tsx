@@ -149,6 +149,28 @@ function packageFlight(jsonStr: string | null): { out: PkgLeg | null; back: PkgL
   }
 }
 
+// Cheapest fares recently seen on a route, by source (Travelpayouts flight radar).
+// Sorted cheapest-first by the backend.
+type CompareOffer = {
+  agency: string;
+  price: number;
+  url: string | null;
+  currency: string;
+  note?: string;
+};
+
+function compareOffers(jsonStr: string | null): CompareOffer[] {
+  if (!jsonStr) return [];
+  try {
+    const d = JSON.parse(jsonStr);
+    return Array.isArray(d)
+      ? d.filter((o) => o && typeof o.price === "number" && typeof o.agency === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 type HotelMeta = {
   stars?: number;
   review_score?: number;
@@ -165,6 +187,7 @@ type HotelMeta = {
   flight_kind?: string;
   airline?: string;
   flight_label?: string;
+  luggage?: string; // HolidayFinder fare tier: naked | withTrolley | withCib | withBoth
 };
 
 // Parse the rich hotel metadata (HolidayFinder) stored as JSON.
@@ -175,6 +198,21 @@ function hotelMeta(jsonStr: string | null): HotelMeta | null {
   } catch {
     return null;
   }
+}
+
+// HolidayFinder flight fare tier → Hebrew label. "Cib" = checked-in baggage.
+// HF inconsistently prefixes some tiers with "A" (AwithTrolley / AwithBoth), so
+// we strip a leading "A" before matching.
+const LUGGAGE_LABEL: Record<string, string> = {
+  naked: "🎒 ללא כבודה",
+  withTrolley: "🧳 טרולי",
+  withCib: "🧳 מזוודה",
+  withBoth: "🧳 טרולי + מזוודה",
+};
+function luggageLabel(tier?: string): string | null {
+  if (!tier) return null;
+  const key = tier.replace(/^A(?=with)/, ""); // AwithTrolley → withTrolley
+  return LUGGAGE_LABEL[key] ?? `🧳 ${tier}`;
 }
 
 type Weather = { tmax: number; tmin: number };
@@ -522,6 +560,7 @@ export default function App() {
   });
   const [usdIls, setUsdIls] = useState<number | null>(null);
   const [openHistory, setOpenHistory] = useState<Set<number>>(new Set());
+  const [expanded, setExpanded] = useState<number | null>(null); // which card is opened full-width
   const [history, setHistory] = useState<Record<number, PriceHistoryPoint[]>>({});
   const [weather, setWeather] = useState<Record<string, Weather | "loading" | null>>({});
 
@@ -760,7 +799,7 @@ export default function App() {
       {tracks.length === 0 ? (
         <div className="empty">עדיין אין מעקבים — הדביקו קישור למעלה כדי להתחיל ✈️</div>
       ) : (
-        <div style={{ display: "grid", gap: "1.1rem" }}>
+        <div className="tickets-grid">
           {tracks.map((t, idx) => {
             const { persons, label: occ } = occupancy(t.room_config);
             const n = nights(t.check_in_date, t.check_out_date);
@@ -775,6 +814,7 @@ export default function App() {
             const gone = !t.available;
             const deal = gone ? null : dealBadge(t);
             const meta = hotelMeta(t.hotel_meta);
+            const open = expanded === t.id;
             const photoList =
               meta?.photos?.length
                 ? meta.photos
@@ -787,12 +827,21 @@ export default function App() {
             return (
               <article
                 key={t.id}
-                className={`ticket reveal${gone ? " ticket--gone" : ""}`}
+                className={`ticket reveal${gone ? " ticket--gone" : ""}${open ? " ticket--open" : ""}`}
+                aria-expanded={open}
+                onClick={(e) => {
+                  // clicks on links/buttons act normally; elsewhere toggles the card
+                  if ((e.target as HTMLElement).closest("a,button")) return;
+                  setExpanded((cur) => (cur === t.id ? null : t.id));
+                }}
                 style={{
                   ["--spine" as string]: gone ? "var(--up)" : SPINE[t.status],
                   animationDelay: `${idx * 70}ms`,
                 }}
               >
+                <span className="expand-cue" aria-hidden>
+                  {open ? "✕" : "⤢"}
+                </span>
                 {photoList.length > 0 && (
                   <PhotoCarousel photos={photoList} city={t.destination_city} stars={meta?.stars} />
                 )}
@@ -806,7 +855,7 @@ export default function App() {
                     )}
                     {deal && <span className={`deal ${deal.cls}`}>{deal.label}</span>}
                   </div>
-                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                  <div className="ticket-actions" style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                     <button className="history-btn" onClick={() => toggleHistory(t.id)} title="היסטוריית מחירים">
                       📈 היסטוריה
                     </button>
@@ -871,7 +920,7 @@ export default function App() {
                   </div>
                 ) : null}
 
-                {meta && (meta.refundable_until || meta.flight_label) && (
+                {meta && (meta.refundable_until || meta.flight_label || meta.luggage) && (
                   <div className="meta-row">
                     {meta.refundable_until && (
                       <span className="meta-chip meta-chip--ok">↩️ ביטול חינם עד {dm(meta.refundable_until)}</span>
@@ -882,6 +931,9 @@ export default function App() {
                         {meta.airline ? ` · ${meta.airline}` : ""}
                         {meta.flight_kind === "charter" ? " · טיסת שכר" : ""}
                       </span>
+                    )}
+                    {luggageLabel(meta.luggage) && (
+                      <span className="meta-chip">{luggageLabel(meta.luggage)}</span>
                     )}
                   </div>
                 )}
@@ -943,7 +995,7 @@ export default function App() {
                     <div className="checked-at">🕐 {lastChecked(t.last_checked_at)}</div>
                   </div>
 
-                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                  <div className="foot-links" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                     {meta?.maps_url && (
                       <a className="offer-link offer-link--alt" href={meta.maps_url} target="_blank" rel="noreferrer">
                         📍 במפה
@@ -1010,6 +1062,50 @@ export default function App() {
                     <span aria-hidden> ↗</span>
                   </a>
                 )}
+
+                {(() => {
+                  const offers = compareOffers(t.compare_offers);
+                  if (offers.length === 0) return null;
+                  return (
+                    <div className="compare">
+                      <div className="compare-head">
+                        ✈️ רדאר טיסות — הזול שנצפה לאחרונה למסלול
+                        <span className="compare-note">מחירים מקושיים, לא בזמן אמת</span>
+                      </div>
+                      <div className="compare-list">
+                        {offers.map((o, i) => {
+                          const row = (
+                            <>
+                              {o.note && <span className="compare-date tnum">{o.note}</span>}
+                              <span className="compare-agency">{o.agency}</span>
+                              <span className="compare-price tnum">
+                                {sym(o.currency)}
+                                {Math.round(o.price).toLocaleString()}
+                              </span>
+                              {i === 0 && <span className="compare-best">הכי זול</span>}
+                            </>
+                          );
+                          return o.url ? (
+                            <a
+                              key={i}
+                              className={`compare-row${i === 0 ? " is-best" : ""}`}
+                              href={o.url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {row}
+                              <span aria-hidden>↗</span>
+                            </a>
+                          ) : (
+                            <div key={i} className={`compare-row${i === 0 ? " is-best" : ""}`}>
+                              {row}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {openHistory.has(t.id) &&
                   (() => {

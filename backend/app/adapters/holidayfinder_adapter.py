@@ -33,7 +33,9 @@ from app.url_parser import ParsedUrl
 
 _API_BASE = "https://www.holidayfinder.co.il/api_no_auth/package_search/hf-offer"
 _GRAPH_URL = "https://www.holidayfinder.co.il/api_no_auth/holiday_finder/hotel-graph/"
-_LUGGAGE_TIERS = {"withTrolley", "withCib", "withBoth"}
+# HolidayFinder fare tiers. Note the inconsistent "A" prefix: checked baggage is
+# `withCib`, but trolley/both come through as `AwithTrolley` / `AwithBoth`.
+_LUGGAGE_TIERS = {"withTrolley", "withCib", "withBoth", "AwithTrolley", "AwithCib", "AwithBoth"}
 _HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -146,7 +148,9 @@ class HolidayFinderAdapter(BaseProviderAdapter):
         group = next(iter((rate.get("flightRateOptions") or {}).values()), {})
         naked = (group.get("naked") or {}).get("price_with_markup_all_pax")
         luggage_added = 0
-        if luggage_tier in {"withTrolley", "withCib", "withBoth"}:
+        # Any non-naked tier adds a fare; look it up by its exact key (tier names
+        # vary — see _LUGGAGE_TIERS) rather than guessing a fixed set.
+        if luggage_tier and luggage_tier != "naked":
             chosen = (group.get(luggage_tier) or {}).get("price_with_markup_all_pax")
             if isinstance(naked, (int, float)) and isinstance(chosen, (int, float)):
                 luggage_added = chosen - naked
@@ -174,6 +178,10 @@ class HolidayFinderAdapter(BaseProviderAdapter):
 
         hotel_url = hotel_obj.get("hotelWebsiteUrl") or None
         hotel_meta = _hf_hotel_meta(hotel_obj, cfd)
+        # Surface the chosen flight fare tier (naked / withTrolley / withCib / withBoth)
+        # so the UI can show whether the price includes a trolley / checked bag.
+        if luggage_tier:
+            hotel_meta = {**(hotel_meta or {}), "luggage": luggage_tier}
         return PriceResult(
             price=Decimal(str(final)).quantize(Decimal("1.00")),
             currency="USD",  # the site quotes packages in USD

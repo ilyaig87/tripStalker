@@ -1,6 +1,7 @@
 """FastAPI application and REST endpoints."""
 from __future__ import annotations
 
+import json
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -138,6 +139,7 @@ async def create_track(
         hotel_portion=result.hotel_portion,
         flight_portion=result.flight_portion,
         flight_details=result.flight_details,
+        hotel_meta=json.dumps(result.hotel_meta, ensure_ascii=False) if result.hotel_meta else None,
     )
     return item
 

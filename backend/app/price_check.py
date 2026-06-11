@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.adapters import ProviderError, get_adapter
 from app.adapters._http import get_json
+from app.comparison import derive_route, fetch_offers
 from app.config import settings
 from app.crud import get_active_tracks, get_tracks_by_email, record_price
 from app.models import TrackedItem, TrackStatus
@@ -87,6 +89,8 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
 
     # Cheaper same-hotel/same-nights alternative on other dates (best-effort).
     alt = await _store_alternative(db, item, adapter, result.price)
+    # Same hotel's price on OTHER booking sites (Hotellook, best-effort).
+    await _store_comparison(db, item)
 
     # Notify on a meaningful move in EITHER direction (drop = deal, rise = heads-up).
     threshold = baseline * Decimal(str(settings.price_drop_threshold))
@@ -131,6 +135,41 @@ async def _store_alternative(db: Session, item: TrackedItem, adapter, current_pr
     item.alt_details = json.dumps(alt["details"]) if alt and alt.get("details") else None
     db.commit()
     return alt
+
+
+async def _store_comparison(db: Session, item: TrackedItem) -> None:
+    """Store a flight "price radar" — cheapest fares recently seen on this route,
+    by source (Travelpayouts/Aviasales). Only for tracks whose price IS a flight
+    total (Travelist); hotel/package tracks derive no route and are skipped.
+    Best-effort: any failure leaves the prior comparison untouched.
+    """
+    route = derive_route(item)
+    if route is None:
+        return
+    origin, dest, depart, return_ = route
+    adults, _ = _occupancy_adults(item.room_config)
+    try:
+        res = await fetch_offers(origin, dest, depart, return_, currency=item.currency or "USD", adults=adults)
+    except Exception as exc:  # best-effort: comparison must not break the price check
+        logger.warning("Comparison fetch failed for track %s: %s", item.id, exc)
+        return
+    offers = res.get("offers") or []
+    item.compare_offers = json.dumps(offers, ensure_ascii=False) if offers else None
+    db.commit()
+
+
+def _occupancy_adults(room_config: str | None) -> tuple[int, int]:
+    """'2-adults,1-children' -> (adults, children); defaults to (1, 0)."""
+    adults, children = 1, 0
+    for part in (room_config or "").split(","):
+        m = re.search(r"\d+", part)
+        if not m:
+            continue
+        if "adult" in part:
+            adults = int(m.group())
+        elif "child" in part:
+            children = int(m.group())
+    return max(1, adults), children
 
 
 async def _fetch_destination_photo(city: str) -> str | None:

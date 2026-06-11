@@ -85,6 +85,17 @@ the token (never from the request body).
 
 > Set `JWT_SECRET` to a long random value in production (`openssl rand -hex 32`).
 
+## Price comparison & extras
+- **Flight price radar (free):** set `TRAVELPAYOUTS_TOKEN` (+ optional
+  `TRAVELPAYOUTS_MARKER`) in `.env` to enable a "cheapest fares recently seen on
+  this route, by source" radar on Travelist (flight) tracks. Best-effort and
+  clearly labeled as cached, not live. Validate with
+  `python scripts/spike_flights.py TLV BCN`. (Hotellook hotel comparison was shut
+  down in 2025, so cross-provider *hotel* prices are not available for free.)
+- **Hotel/flight extras:** HolidayFinder packages surface stars, reviews, board,
+  room, tags and the **flight luggage tier** (none / trolley / checked bag) via
+  `hotel_meta`, shown on the card.
+
 ## MVP notes / going live
 - **Mock mode:** with no API keys the `GlobalAdapter` returns deterministic
   fluctuating prices so the whole pipeline is demoable end-to-end.

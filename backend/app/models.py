@@ -96,6 +96,11 @@ class TrackedItem(Base):
     alt_url: Mapped[str | None] = mapped_column(String(1000))
     alt_details: Mapped[str | None] = mapped_column(String(500))  # JSON: flight info (airline, stops…)
 
+    # Flight "price radar" (Travelpayouts): cheapest fares recently seen on this
+    # route, by source. JSON list of [{agency, price, url, currency, note}].
+    compare_offers: Mapped[str | None] = mapped_column(Text)
+    hotellook_id: Mapped[str | None] = mapped_column(String(40))  # reserved (legacy compare key)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped[User] = relationship(back_populates="tracked_items")

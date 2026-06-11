@@ -79,6 +79,7 @@ class TrackOut(BaseModel):
     flight_portion: Decimal | None = None
     flight_details: str | None = None
     hotel_meta: str | None = None  # JSON: stars, reviews, board, room, tags, photo, maps…
+    compare_offers: str | None = None  # JSON: [{agency, price, url, currency}] — same hotel elsewhere
     created_at: datetime
 
 
