@@ -46,6 +46,7 @@ class GlobalAdapter(BaseProviderAdapter):
             price=price,
             currency="USD",
             hotel_name=parsed.target_hotel_id_or_name or parsed.destination,
+            destination_city=parsed.destination,
             raw={"mock": True, "seed": seed},
         )
 

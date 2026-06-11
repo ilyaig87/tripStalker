@@ -18,6 +18,7 @@ class PriceResult:
     price: Decimal
     currency: str = "USD"
     hotel_name: str | None = None      # resolved display name, if the provider gives one
+    destination_city: str | None = None    # resolved destination city (for weather etc.)
     hotel_portion: Decimal | None = None   # package breakdown: hotel part (if known)
     flight_portion: Decimal | None = None  # package breakdown: flight part (if known)
     raw: dict | None = None            # original provider payload, for debugging

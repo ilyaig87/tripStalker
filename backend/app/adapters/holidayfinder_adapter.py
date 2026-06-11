@@ -114,10 +114,12 @@ class HolidayFinderAdapter(BaseProviderAdapter):
 
         per_pax = rate_include.get("total_price_per_pax")
         hotel = (rate.get("hotel") or {}).get("name") or f"HolidayFinder offer #{parsed.target_hotel_id_or_name}"
+        dest_city = ((data.get("data") or {}).get("destination_data") or {}).get("name_en")
         return PriceResult(
             price=Decimal(str(final)).quantize(Decimal("1.00")),
             currency="USD",  # the site quotes packages in USD
             hotel_name=hotel,
+            destination_city=dest_city,
             hotel_portion=hotel_portion,
             flight_portion=flight_portion,
             raw={

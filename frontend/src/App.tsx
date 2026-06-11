@@ -105,6 +105,34 @@ function signed(n: number, currency: string) {
   return `${s}${sym(currency)}${Math.abs(Math.round(n)).toLocaleString()}`;
 }
 
+type Weather = { tmax: number; tmin: number };
+
+// Typical weather at a destination for the travel month — open-meteo, keyless.
+// Uses last year's same dates (archive) as a "typical" estimate for future trips.
+async function fetchWeather(city: string, checkIn: string, checkOut: string | null): Promise<Weather | null> {
+  const geo = await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`
+  ).then((r) => r.json());
+  const loc = geo?.results?.[0];
+  if (!loc) return null;
+  const lastYear = (s: string) => {
+    const d = new Date(s);
+    d.setFullYear(d.getFullYear() - 1);
+    return d.toISOString().slice(0, 10);
+  };
+  const start = lastYear(checkIn);
+  const end = lastYear(checkOut || checkIn);
+  const a = await fetch(
+    `https://archive-api.open-meteo.com/v1/archive?latitude=${loc.latitude}&longitude=${loc.longitude}` +
+      `&start_date=${start}&end_date=${end}&daily=temperature_2m_max,temperature_2m_min&timezone=auto`
+  ).then((r) => r.json());
+  const maxes: number[] = (a?.daily?.temperature_2m_max || []).filter((x: number) => x != null);
+  const mins: number[] = (a?.daily?.temperature_2m_min || []).filter((x: number) => x != null);
+  if (!maxes.length) return null;
+  const avg = (arr: number[]) => Math.round(arr.reduce((s, x) => s + x, 0) / arr.length);
+  return { tmax: avg(maxes), tmin: avg(mins) };
+}
+
 // "Good deal?" — position of the current price within its all-time low–high range.
 function dealBadge(t: Track): { cls: string; label: string } | null {
   if (t.price_low == null || t.price_high == null || t.current_price == null) return null;
@@ -212,6 +240,20 @@ export default function App() {
   const [usdIls, setUsdIls] = useState<number | null>(null);
   const [openHistory, setOpenHistory] = useState<Set<number>>(new Set());
   const [history, setHistory] = useState<Record<number, PriceHistoryPoint[]>>({});
+  const [weather, setWeather] = useState<Record<string, Weather | "loading" | null>>({});
+
+  // Fetch typical destination weather (keyless) for any track that has a city.
+  useEffect(() => {
+    for (const t of tracks) {
+      if (!t.destination_city || !t.check_in_date) continue;
+      const key = `${t.destination_city}|${t.check_in_date.slice(0, 7)}`;
+      if (weather[key] !== undefined) continue;
+      setWeather((prev) => ({ ...prev, [key]: "loading" }));
+      fetchWeather(t.destination_city, t.check_in_date, t.check_out_date)
+        .then((w) => setWeather((prev) => ({ ...prev, [key]: w })))
+        .catch(() => setWeather((prev) => ({ ...prev, [key]: null })));
+    }
+  }, [tracks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -465,6 +507,16 @@ export default function App() {
                     value={`${dm(t.check_in_date)} – ${dm(t.check_out_date)}${n ? ` · ${n} ל׳` : ""}`}
                   />
                   {occ && <Stat icon="👥" label="תפוסה" value={occ} />}
+                  {(() => {
+                    const wk =
+                      t.destination_city && t.check_in_date
+                        ? `${t.destination_city}|${t.check_in_date.slice(0, 7)}`
+                        : null;
+                    const w = wk ? weather[wk] : undefined;
+                    return w && w !== "loading" ? (
+                      <Stat icon="☀️" label={t.destination_city ?? "מזג אוויר"} value={`~${w.tmax}°/${w.tmin}°`} />
+                    ) : null;
+                  })()}
                 </div>
 
                 {gone && (

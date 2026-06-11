@@ -1,31 +1,39 @@
 #!/usr/bin/env python3
-"""compare_separate.py — package vs. à-la-carte price check.
+"""compare_separate.py — package vs. à-la-carte price check (100% free sources).
 
-Takes a HolidayFinder offer URL and answers the question:
-    "Is the flight+hotel PACKAGE actually cheaper than booking the
-     same hotel and the same flight SEPARATELY?"
+Takes a HolidayFinder offer URL and answers:
+    "Is the flight+hotel PACKAGE actually cheaper than booking the same
+     hotel and the same flight SEPARATELY?"
 
-It pulls three numbers and lays them side by side (all USD):
+It is deliberately HONEST about when the question can't be answered, because
+two things routinely make a package non-comparable per-leg:
 
-  1. HolidayFinder package  -> the REAL package total (and the adapter's
-     derived hotel/flight split, which is only an estimate — see below).
-  2. Hotel booked alone      -> Xotelo (free, no key) — TripAdvisor-sourced
-     OTA rates (Booking.com / Hotels.com / Expedia ...).
-  3. Flight booked alone     -> Travelpayouts Aviasales Data API (free token).
+  * CHARTER flights  — HolidayFinder often flies charter (e.g. Arkia/Israir
+    seat blocks). Charters are NOT sold separately and appear on NO flight
+    API/site, so there is no "book the flight alone" price to compare to.
+  * BOARD basis      — the package hotel is frequently All-Inclusive (all
+    meals + drinks for everyone). Independent hotel APIs quote ROOM-ONLY, so
+    the package "hotel portion" includes food the room rate doesn't. Comparing
+    them straight is apples-to-oranges; we flag it instead of pretending.
 
-Why the package "hotel split" is only an estimate: HolidayFinder gives ONE
-package price. The adapter derives flight = the "naked" flight rate and
-hotel = total - naked. Package suppliers cross-subsidise (wholesale hotel
-rates, shifted markup), so that split is internally consistent for tracking
-trends but is NOT the hotel's real market price. This script gets the real
-market prices from independent sources so you can see the true gap.
+Numbers, all USD, all free:
+  1. HolidayFinder package -> real package total (+ the adapter's derived split,
+     which is only an estimate — see notes printed at the end).
+  2. Hotel alone           -> Xotelo /rates (free, no key). If the exact dates
+     have no cached rates (common 3+ months out), we fall back to the nearest
+     dates that do, same number of nights, and label it a PROXY.
+  3. Flight alone          -> only attempted for SCHEDULED flights, via
+     Travelpayouts (free token, NO credit card — register at travelpayouts.com).
+     Skipped with an explanation for charter flights.
+
+Finding the hotel key: Xotelo's /search is now RapidAPI-gated, but /rates is
+still free. So pass the hotel's TripAdvisor id with --hotel-key. Find it in 5s:
+google "<hotel name> tripadvisor", open the result, copy the gNNNN-dNNNN from
+the URL (…/Hotel_Review-g190384-d236327-Reviews-…). Example below.
 
 Usage:
-    .venv/bin/python scripts/compare_separate.py "<holidayfinder offer url>"
-    .venv/bin/python scripts/compare_separate.py "<url>" --dump   # full HF JSON
-
-Requires (for the flight leg only): TRAVELPAYOUTS_TOKEN in backend/.env
-(free — register at travelpayouts.com). The hotel leg needs no key.
+    .venv/bin/python scripts/compare_separate.py "<hf url>" --hotel-key g190384-d236327
+    .venv/bin/python scripts/compare_separate.py "<hf url>" --dump   # full HF JSON
 """
 from __future__ import annotations
 
@@ -36,10 +44,10 @@ import re
 import sys
 import time
 import uuid
+from datetime import timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-# Make `app` importable when run from backend/.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import httpx  # noqa: E402
@@ -53,140 +61,143 @@ _API_BASE = "https://www.holidayfinder.co.il/api_no_auth/package_search/hf-offer
 _XOTELO = "https://data.xotelo.com/api"
 _TP = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates"
 
+# Board codes HolidayFinder/Travelyo use in the `bc` (…:tier:BOARD).
+_BOARD = {
+    "RO": "Room only", "OB": "Room only", "SC": "Self catering",
+    "BB": "Bed & breakfast", "HB": "Half board", "FB": "Full board",
+    "AI": "All-inclusive", "UAI": "Ultra all-inclusive", "AI+": "All-inclusive+",
+}
+_MEAL_INCLUSIVE = {"BB", "HB", "FB", "AI", "UAI", "AI+"}  # board that bundles food
+
 
 # --------------------------------------------------------------------------- HF
 async def fetch_hf(parsed) -> dict:
-    """Raw HolidayFinder package response (same call the adapter makes)."""
     qs = parse_qs(urlparse(parsed.raw_url).query)
     q = lambda k, d="": qs[k][0] if qs.get(k) else d
     bc = q("bc")
     if not bc:
         raise SystemExit("URL is missing the `bc` booking code.")
     params = {
-        "adult": q("adult", "2"),
-        "child": q("child", "[]"),
-        "airports[]": q("airports[]", "TLV"),
-        "lang": "he",
-        "muid": uuid.uuid4().hex,
-        "tt": str(int(time.time() * 1000)),
+        "adult": q("adult", "2"), "child": q("child", "[]"),
+        "airports[]": q("airports[]", "TLV"), "lang": "he",
+        "muid": uuid.uuid4().hex, "tt": str(int(time.time() * 1000)),
     }
     return await get_json(f"{_API_BASE}/{bc}", params=params, headers=_HEADERS, proxy=settings.proxy_url or None)
 
 
-def find_dest_iata(data: dict, origin: str | None) -> str | None:
-    """Scan the HF JSON for the ARRIVAL airport IATA (the destination).
-
-    HF doesn't put the destination in the URL, so we dig it out of the flight
-    segments in the response. We collect every 3-letter airport code that isn't
-    the origin and isn't an obvious connection home, preferring the last
-    outbound segment's arrival.
-    """
-    codes: list[str] = []
-
-    def walk(node):
-        if isinstance(node, dict):
-            for k, v in node.items():
-                kl = k.lower()
-                if isinstance(v, str) and re.fullmatch(r"[A-Z]{3}", v) and (
-                    "airport" in kl or "arrival" in kl or kl in {"to", "dest", "destination", "iata"}
-                ):
-                    codes.append(v)
-                walk(v)
-        elif isinstance(node, list):
-            for it in node:
-                walk(it)
-
-    walk(data)
-    for c in codes:
-        if c != (origin or "TLV"):
-            return c
-    return codes[0] if codes else None
+def flight_meta(data: dict) -> dict:
+    """Pull flight type + route from the recommended rate's cheapest flight."""
+    f = (data.get("data") or {}).get("recommendedRate", {}).get("cheapest_flight_data") or {}
+    ftype = (f.get("flight_type") or "").lower()  # "charter" | "regular"/"scheduled"
+    return {
+        "charter": ftype == "charter",
+        "type": ftype or "unknown",
+        "company": f.get("company_name"),
+        "dest_iata": f.get("city_to_code") or f.get("city_to_airport_code"),
+        "dest_name": f.get("city_to_name"),
+        "origin_iata": f.get("city_from_code") or f.get("city_from_airport_code"),
+    }
 
 
-def find_hotel(data: dict) -> tuple[str | None, str | None]:
-    """Return (hotel_name, city/location hint) from the recommended rate."""
-    rate = (data.get("data") or {}).get("recommendedRate") or {}
-    hotel = rate.get("hotel") or {}
-    name = hotel.get("name")
-    loc = hotel.get("city") or hotel.get("destination") or hotel.get("country") or hotel.get("location")
-    return name, (loc if isinstance(loc, str) else None)
+def board_from_bc(raw_url: str) -> str | None:
+    bc = (parse_qs(urlparse(raw_url).query).get("bc") or [""])[0]
+    parts = bc.split(":")
+    return parts[2].upper() if len(parts) >= 3 else None
+
+
+def hotel_name(data: dict) -> str | None:
+    return ((data.get("data") or {}).get("recommendedRate", {}).get("hotel") or {}).get("name")
 
 
 # ------------------------------------------------------------------------ Xotelo
-async def hotel_alone(name: str, loc: str | None, chk_in: str, chk_out: str,
-                      adults: str, child_ages: list[str]) -> dict | None:
-    """Cheapest independent rate for this hotel via Xotelo (no key needed)."""
-    query = f"{name} {loc}".strip() if loc else name
-    try:
-        found = await get_json(f"{_XOTELO}/search", params={"query": query})
-    except (httpx.HTTPError, ValueError) as e:
-        return {"error": f"search failed: {e}"}
-    lst = ((found.get("result") or {}).get("list")) or []
-    if not lst:
-        return {"error": f"no Xotelo match for {query!r}"}
-    hit = lst[0]
-    params = {
-        "hotel_key": hit["hotel_key"], "chk_in": chk_in, "chk_out": chk_out,
-        "currency": "USD", "rooms": "1", "adults": adults,
-    }
+async def xotelo_rates(key: str, ci: str, co: str, adults: str, child_ages: list[str]) -> list[dict]:
+    """Xotelo lead-in rates. Each rate is {code,name,rate,tax} — NO board field
+    is exposed, so we treat `rate+tax` as the all-in price and the board basis as
+    UNDISCLOSED (the lead-in rate is almost always room-only)."""
+    params = {"hotel_key": key, "chk_in": ci, "chk_out": co, "currency": "USD", "rooms": "1", "adults": adults}
     if child_ages:
         params["age_of_children"] = ",".join(child_ages)
     try:
-        rates = await get_json(f"{_XOTELO}/rates", params=params)
-    except (httpx.HTTPError, ValueError) as e:
-        return {"error": f"rates failed: {e}", "matched": hit.get("name")}
-    rlist = ((rates.get("result") or {}).get("rates")) or []
-    priced = [r for r in rlist if isinstance(r.get("rate"), (int, float)) and r["rate"] > 0]
-    if not priced:
-        return {"error": "no rates returned (dates unavailable?)", "matched": hit.get("name")}
-    best = min(priced, key=lambda r: r["rate"])
-    return {"matched": hit.get("name"), "vendor": best.get("name"),
-            "price": float(best["rate"]), "all": sorted((r["name"], r["rate"]) for r in priced)}
+        d = await get_json(f"{_XOTELO}/rates", params=params)
+    except (httpx.HTTPError, ValueError):
+        return []
+    out = []
+    for r in ((d.get("result") or {}).get("rates")) or []:
+        if isinstance(r.get("rate"), (int, float)) and r["rate"] > 0:
+            out.append({"name": r["name"], "total": float(r["rate"]) + float(r.get("tax") or 0)})
+    return out
+
+
+async def hotel_alone(key: str, ci, co, adults: str, child_ages: list[str]) -> dict:
+    """Cheapest room-only rate via Xotelo, with nearest-date fallback.
+
+    Far-future dates often have no cached rates. We then probe the same number
+    of nights shifted by ±1..4 weeks and return the nearest one that prices,
+    clearly marked as a proxy.
+    """
+    nights = (co - ci).days
+    exact = await xotelo_rates(key, ci.isoformat(), co.isoformat(), adults, child_ages)
+    if exact:
+        best = min(exact, key=lambda r: r["total"])
+        return {"price": best["total"], "vendor": best["name"], "proxy": None,
+                "all": sorted((r["name"], r["total"]) for r in exact)}
+    for weeks in (1, 2, 3, 4, -1, -2):  # prefer earlier dates (likelier cached)
+        alt_ci = ci - timedelta(weeks=weeks)
+        alt_co = alt_ci + timedelta(days=nights)
+        got = await xotelo_rates(key, alt_ci.isoformat(), alt_co.isoformat(), adults, child_ages)
+        if got:
+            best = min(got, key=lambda r: r["total"])
+            return {"price": best["total"], "vendor": best["name"],
+                    "proxy": f"{alt_ci.isoformat()}…{alt_co.isoformat()}",
+                    "all": sorted((r["name"], r["total"]) for r in got)}
+    return {"error": "no Xotelo rates for these or nearby dates (TripAdvisor cache empty this far out)"}
 
 
 # ------------------------------------------------------------------- Travelpayouts
-async def flight_alone(origin: str, dest: str, depart: str, ret: str) -> dict | None:
-    """Cheapest round-trip TLV->dest via Travelpayouts (needs free token)."""
+async def flight_alone(origin: str, dest: str, depart: str, ret: str) -> dict:
     token = settings.travelpayouts_token
     if not token:
-        return {"error": "TRAVELPAYOUTS_TOKEN not set in backend/.env (free at travelpayouts.com)"}
-    params = {
-        "origin": origin, "destination": dest,
-        "departure_at": depart, "return_at": ret,
-        "currency": "usd", "one_way": "false", "limit": "10",
-        "sorting": "price", "token": token,
-    }
+        return {"error": "needs a FREE Travelpayouts token (no credit card) — see travelpayouts.com, "
+                         "then add TRAVELPAYOUTS_TOKEN=… to backend/.env"}
+    params = {"origin": origin, "destination": dest, "departure_at": depart, "return_at": ret,
+              "currency": "usd", "one_way": "false", "limit": "10", "sorting": "price", "token": token}
     try:
-        data = await get_json(_TP, params=params)
+        d = await get_json(_TP, params=params)
     except (httpx.HTTPError, ValueError) as e:
-        return {"error": f"flight lookup failed: {e}"}
-    rows = [r for r in (data.get("data") or []) if isinstance(r.get("price"), (int, float))]
+        return {"error": f"lookup failed: {e}"}
+    rows = [r for r in (d.get("data") or []) if isinstance(r.get("price"), (int, float))]
     if not rows:
-        return {"error": f"no flights found {origin}->{dest} for those dates"}
+        return {"error": f"no SCHEDULED flights {origin}->{dest} for those dates"}
     best = min(rows, key=lambda r: r["price"])
-    return {"price": float(best["price"]), "airline": best.get("airline"),
-            "depart": best.get("departure_at"), "ret": best.get("return_at")}
+    return {"price": float(best["price"]), "airline": best.get("airline")}
 
 
 # ------------------------------------------------------------------------- report
-def usd(x) -> str:
+def usd(x):
     return f"${x:,.0f}" if isinstance(x, (int, float)) else "—"
 
 
-def line(label: str, pkg, sep, note=""):
+def row(label, pkg, sep, note="", comparable=True):
+    """Render a comparison row. When the two sides aren't on the same board basis
+    (`comparable=False`) we deliberately DON'T print a cheaper/pricier verdict —
+    only the raw numbers — because the comparison would be misleading."""
     diff = (sep - pkg) if isinstance(pkg, (int, float)) and isinstance(sep, (int, float)) else None
-    dtxt = ""
+    dtxt = note
     if diff is not None:
-        sign = "+" if diff > 0 else ""
-        verdict = "package cheaper ✅" if diff > 0 else ("separate cheaper ⚠️" if diff < 0 else "equal")
-        dtxt = f"{sign}{diff:,.0f}  {verdict}"
-    print(f"  {label:<26}{usd(pkg):>12}{usd(sep):>16}   {dtxt or note}")
+        if not comparable:
+            dtxt = note or "≠ different board — not directly comparable"
+        else:
+            sign = "+" if diff > 0 else ""
+            verdict = "package cheaper ✅" if diff > 0 else ("separate cheaper ⚠️" if diff < 0 else "equal")
+            dtxt = f"{sign}{diff:,.0f}  {verdict}"
+    print(f"  {label:<22}{usd(pkg):>11}{usd(sep):>14}   {dtxt}")
 
 
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("url")
-    ap.add_argument("--dump", action="store_true", help="print the full HolidayFinder JSON and exit")
+    ap.add_argument("--hotel-key", help="TripAdvisor id, e.g. g190384-d236327 (from the hotel's TripAdvisor URL)")
+    ap.add_argument("--dump", action="store_true")
     args = ap.parse_args()
 
     parsed = parse_url(args.url)
@@ -196,67 +207,81 @@ async def main():
     print("Fetching HolidayFinder package …")
     data = await fetch_hf(parsed)
     if args.dump:
-        print(json.dumps(data, ensure_ascii=False, indent=2))
-        return
+        print(json.dumps(data, ensure_ascii=False, indent=2)); return
 
-    # 1) Package numbers via the existing adapter (real total + derived split).
-    pr = HolidayFinderAdapter()._extract_price(
-        data, parsed, luggage_tier=(parse_qs(urlparse(parsed.raw_url).query).get("bc", [""])[0].split(":") + ["", ""])[1] or None
-    )
+    # 1) Package numbers (real total + derived split) via the existing adapter.
+    #    Pass the luggage tier from the bc so the total matches what HF charges.
+    board_code = board_from_bc(parsed.raw_url)
+    bc_parts = (parse_qs(urlparse(parsed.raw_url).query).get("bc") or [""])[0].split(":")
+    luggage_tier = bc_parts[1] if len(bc_parts) >= 2 else None
+    pr = HolidayFinderAdapter()._extract_price(data, parsed, luggage_tier=luggage_tier)
     pkg_total = float(pr.price)
     pkg_hotel = float(pr.hotel_portion) if pr.hotel_portion is not None else None
     pkg_flight = float(pr.flight_portion) if pr.flight_portion is not None else None
 
-    # 2) Resolve the bits we need for the separate lookups.
-    origin = parsed.extra.get("departure_airport") or "TLV"
-    dest = find_dest_iata(data, origin)
-    hotel_name, hotel_loc = find_hotel(data)
-    chk_in = parsed.check_in_date.isoformat() if parsed.check_in_date else None
-    chk_out = parsed.check_out_date.isoformat() if parsed.check_out_date else None
+    fm = flight_meta(data)
+    name = hotel_name(data)
+    ci, co = parsed.check_in_date, parsed.check_out_date
     qs = parse_qs(urlparse(parsed.raw_url).query)
     adults = (qs.get("adult") or ["2"])[0]
     child_ages = re.findall(r"\d+", (qs.get("child") or [""])[0])
+    board_label = _BOARD.get(board_code or "", board_code or "?")
 
-    print(f"\n  Hotel : {hotel_name or '?'}   ({hotel_loc or 'location unknown'})")
-    print(f"  Route : {origin} -> {dest or '?'}   {chk_in} … {chk_out}   {adults} adult(s), {len(child_ages)} child")
+    print(f"\n  Hotel : {name or '?'}    board: {board_label}")
+    print(f"  Route : {fm['origin_iata']} → {fm['dest_iata']} ({fm['dest_name']})    "
+          f"{ci} … {co}    {adults} adult(s), {len(child_ages)} child")
+    print(f"  Flight: {fm['company']}  [{fm['type'].upper()}]")
 
-    # 3) Independent prices (run concurrently).
-    hotel_task = hotel_alone(hotel_name, hotel_loc, chk_in, chk_out, adults, child_ages) if hotel_name and chk_in else None
-    flight_task = flight_alone(origin, dest, chk_in, chk_out) if dest and chk_in else None
-    hotel_res, flight_res = await asyncio.gather(
-        hotel_task or _none(), flight_task or _none(),
-    )
+    # 2) Hotel alone (free Xotelo). Needs a hotel key.
+    if args.hotel_key and name and ci and co:
+        hotel_res = await hotel_alone(args.hotel_key, ci, co, adults, child_ages)
+    elif not args.hotel_key:
+        hotel_res = {"error": f"pass --hotel-key (google \"{name} tripadvisor\" → copy gNNNN-dNNNN)"}
+    else:
+        hotel_res = {"error": "missing hotel name or dates"}
+
+    # 3) Flight alone — only meaningful for scheduled flights.
+    if fm["charter"]:
+        flight_res = {"error": "CHARTER flight — not sold separately, exists on no flight API"}
+    elif fm["dest_iata"] and ci and co:
+        flight_res = await flight_alone(fm["origin_iata"] or "TLV", fm["dest_iata"], ci.isoformat(), co.isoformat())
+    else:
+        flight_res = {"error": "missing route/dates"}
 
     # 4) Side-by-side.
-    print("\n" + "=" * 72)
-    print(f"  {'':<26}{'PACKAGE':>12}{'SEPARATE':>16}   DIFF (separate − package)")
-    print("  " + "-" * 70)
-
-    sep_hotel = hotel_res.get("price") if isinstance(hotel_res, dict) else None
-    line("Hotel", pkg_hotel, sep_hotel,
-         note=(hotel_res or {}).get("error", "") if not sep_hotel else "")
-    sep_flight = flight_res.get("price") if isinstance(flight_res, dict) else None
-    line("Flight (round-trip)", pkg_flight, sep_flight,
-         note=(flight_res or {}).get("error", "") if not sep_flight else "")
-
+    print("\n" + "=" * 70)
+    print(f"  {'':<22}{'PACKAGE':>11}{'SEPARATE':>14}   DIFF (separate − package)")
+    print("  " + "-" * 68)
+    sep_hotel = hotel_res.get("price")
+    row("Hotel", pkg_hotel, sep_hotel, note=hotel_res.get("error", ""))
+    sep_flight = flight_res.get("price")
+    row("Flight (round-trip)", pkg_flight, sep_flight, note=flight_res.get("error", ""))
+    print("  " + "-" * 68)
     sep_total = (sep_hotel + sep_flight) if (sep_hotel and sep_flight) else None
-    print("  " + "-" * 70)
-    line("TOTAL", pkg_total, sep_total,
-         note="(need both legs priced for a total)" if not sep_total else "")
-    print("=" * 72)
+    row("TOTAL", pkg_total, sep_total, note="(need both legs priced)" if not sep_total else "")
+    print("=" * 70)
 
-    if isinstance(hotel_res, dict) and hotel_res.get("matched"):
-        print(f"\n  Hotel match: {hotel_res['matched']}  | cheapest vendor: {hotel_res.get('vendor')}")
-        if hotel_res.get("all"):
-            print("  OTA rates: " + ", ".join(f"{n} {usd(r)}" for n, r in hotel_res["all"]))
-    if isinstance(flight_res, dict) and flight_res.get("airline"):
-        print(f"  Flight: {flight_res['airline']}  {flight_res.get('depart')} → {flight_res.get('ret')}")
-    print("\n  NOTE: the PACKAGE hotel/flight columns are the adapter's derived split,")
-    print("  not prices HolidayFinder quotes per-leg. Only the package TOTAL is exact.")
-
-
-async def _none():
-    return None
+    # 5) Honesty footnotes — the two traps.
+    notes = []
+    if board_code in _MEAL_INCLUSIVE:
+        notes.append(
+            f"⚠ Board mismatch: the package hotel is {board_label} (food/drinks included for everyone), "
+            f"but Xotelo quotes ROOM-ONLY. The package hotel column is NOT comparable to the separate "
+            f"hotel price — the gap is mostly meals, not markup.")
+    if fm["charter"]:
+        notes.append(
+            "⚠ The flight is CHARTER: it cannot be booked separately and appears on no flight API. "
+            "There is no honest à-la-carte flight price to compare against.")
+    if hotel_res.get("proxy"):
+        notes.append(f"ℹ Hotel price is a PROXY from nearby dates ({hotel_res['proxy']}) — the exact "
+                     "dates had no cached rates. Treat as a ballpark.")
+    if hotel_res.get("all"):
+        notes.append("Hotel OTA rates (room-only): " + ", ".join(f"{n} {usd(r)}" for n, r in hotel_res["all"]))
+    notes.append("The PACKAGE hotel/flight columns are the adapter's derived split, not per-leg prices "
+                 "HolidayFinder quotes. Only the package TOTAL is exact.")
+    print()
+    for n in notes:
+        print("  " + n)
 
 
 if __name__ == "__main__":

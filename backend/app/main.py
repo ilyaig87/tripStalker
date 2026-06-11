@@ -73,6 +73,7 @@ async def create_track(payload: TrackCreate, db: Session = Depends(get_db)) -> T
         initial_price=result.price,
         currency=result.currency,
         hotel_name=result.hotel_name,
+        destination_city=result.destination_city,
         hotel_portion=result.hotel_portion,
         flight_portion=result.flight_portion,
     )

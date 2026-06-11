@@ -12,6 +12,7 @@ export interface Track {
   room_config: string | null;
   target_hotel_id_or_name: string | null;
   hotel_name: string | null;
+  destination_city: string | null;
   initial_price: string | null;
   current_price: string | null;
   price_low: string | null;

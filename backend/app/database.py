@@ -48,6 +48,7 @@ _NUM = {"sqlite": "NUMERIC(12,2)", "postgresql": "NUMERIC(12,2)"}
 _ADDED_COLUMNS = {
     "tracked_items": {
         "hotel_name": {"sqlite": "VARCHAR(255)", "postgresql": "VARCHAR(255)"},
+        "destination_city": {"sqlite": "VARCHAR(120)", "postgresql": "VARCHAR(120)"},
         "available": {"sqlite": "BOOLEAN DEFAULT 1", "postgresql": "BOOLEAN DEFAULT TRUE"},
         "failed_checks": {"sqlite": "INTEGER DEFAULT 0", "postgresql": "INTEGER DEFAULT 0"},
         "last_error": {"sqlite": "VARCHAR(500)", "postgresql": "VARCHAR(500)"},
