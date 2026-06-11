@@ -58,6 +58,18 @@ export function deleteTrack(id: number): Promise<void> {
   return fetch(`${BASE}/api/track/${id}`, { method: "DELETE" }).then((r) => handle<void>(r));
 }
 
+export interface PriceHistoryPoint {
+  price: string;
+  checked_at: string;
+}
+
+// Full track detail including its recorded price history.
+export function getTrack(id: number): Promise<Track & { price_history: PriceHistoryPoint[] }> {
+  return fetch(`${BASE}/api/track/${id}`).then((r) =>
+    handle<Track & { price_history: PriceHistoryPoint[] }>(r)
+  );
+}
+
 // Reset a track's baseline to its current price (clears a false drop/increase).
 export function resetTrack(id: number): Promise<Track> {
   return fetch(`${BASE}/api/track/${id}/reset`, { method: "POST" }).then((r) => handle<Track>(r));

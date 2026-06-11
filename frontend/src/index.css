@@ -630,6 +630,59 @@ body::before {
 .reset-btn:hover {
   color: var(--teal);
 }
+.history-btn {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.2rem 0.3rem;
+  transition: color 0.15s;
+}
+.history-btn:hover {
+  color: var(--teal);
+}
+
+/* price-history panel */
+.history-panel {
+  margin-top: 0.95rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed var(--line-strong);
+}
+.history-empty {
+  color: var(--ink-faint);
+  font-size: 0.9rem;
+}
+.sparkline {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: 46px;
+  margin-bottom: 0.7rem;
+}
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.86rem;
+}
+.history-date {
+  color: var(--ink-faint);
+  min-width: 3.2rem;
+}
+.history-price {
+  font-weight: 700;
+  min-width: 4.5rem;
+}
 
 .alt-suggest {
   display: block;

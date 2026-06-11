@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { createTrack, deleteTrack, listTracks, refreshTracks, resetTrack, type Track } from "./api";
+import {
+  createTrack,
+  deleteTrack,
+  getTrack,
+  listTracks,
+  type PriceHistoryPoint,
+  refreshTracks,
+  resetTrack,
+  type Track,
+} from "./api";
 
 const STATUS = {
   Active: { label: "במעקב", cls: "status--active" },
@@ -60,6 +69,44 @@ function lastChecked(iso: string | null) {
   const hr = Math.round(min / 60);
   if (hr < 24) return `נבדק לפני ${hr} ש׳`;
   return `נבדק לפני ${Math.round(hr / 24)} י׳`;
+}
+
+// Keep only the points where the price changed (+ the first), with the delta.
+function changeLog(points: PriceHistoryPoint[]) {
+  const out: { date: string; price: number; delta: number | null }[] = [];
+  let prev: number | null = null;
+  for (const p of points) {
+    const v = Number(p.price);
+    if (prev === null || v !== prev) {
+      out.push({ date: p.checked_at, price: v, delta: prev === null ? null : v - prev });
+      prev = v;
+    }
+  }
+  return out;
+}
+
+function Sparkline({ points }: { points: PriceHistoryPoint[] }) {
+  const vals = points.map((p) => Number(p.price));
+  if (vals.length < 2) return null;
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const span = max - min || 1;
+  const W = 240;
+  const H = 46;
+  const pad = 5;
+  const coords = vals
+    .map((v, i) => {
+      const x = pad + (i / (vals.length - 1)) * (W - 2 * pad);
+      const y = pad + (1 - (v - min) / span) * (H - 2 * pad);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const color = vals[vals.length - 1] <= vals[0] ? "var(--down)" : "var(--up)";
+  return (
+    <svg className="sparkline" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
+      <polyline points={coords} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 // "2-adults,1-children" -> { persons, label }
@@ -130,6 +177,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<string>(() => localStorage.getItem("ts_theme") || "beach");
   const [usdIls, setUsdIls] = useState<number | null>(null);
+  const [openHistory, setOpenHistory] = useState<Set<number>>(new Set());
+  const [history, setHistory] = useState<Record<number, PriceHistoryPoint[]>>({});
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -185,6 +234,22 @@ export default function App() {
   async function onReset(id: number) {
     await resetTrack(id); // make the current price the new baseline
     await refresh(email);
+  }
+
+  async function toggleHistory(id: number) {
+    setOpenHistory((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+    if (!history[id]) {
+      try {
+        const detail = await getTrack(id);
+        setHistory((prev) => ({ ...prev, [id]: detail.price_history || [] }));
+      } catch {
+        /* ignore — panel will show the empty state */
+      }
+    }
   }
 
   async function onCheckNow() {
@@ -336,7 +401,10 @@ export default function App() {
                       <span className={`status ${st.cls}`}>{st.label}</span>
                     )}
                   </div>
-                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                    <button className="history-btn" onClick={() => toggleHistory(t.id)} title="היסטוריית מחירים">
+                      📈 היסטוריה
+                    </button>
                     <button
                       className="reset-btn"
                       onClick={() => onReset(t.id)}
@@ -423,6 +491,39 @@ export default function App() {
                     <span aria-hidden> ↗</span>
                   </a>
                 )}
+
+                {openHistory.has(t.id) &&
+                  (() => {
+                    const pts = history[t.id];
+                    if (!pts) return <div className="history-panel history-empty">טוען…</div>;
+                    if (pts.length < 2)
+                      return <div className="history-panel history-empty">אין עדיין היסטוריית מחירים — נצברת בכל בדיקה.</div>;
+                    const log = changeLog(pts);
+                    return (
+                      <div className="history-panel">
+                        <Sparkline points={pts} />
+                        <div className="history-list">
+                          {log
+                            .slice()
+                            .reverse()
+                            .map((e, i) => (
+                              <div className="history-row" key={i}>
+                                <span className="history-date">
+                                  {new Date(e.date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}
+                                </span>
+                                <span className="history-price tnum">{money(String(e.price), t.currency)}</span>
+                                {e.delta !== null && e.delta !== 0 && (
+                                  <span className={`delta delta--${e.delta < 0 ? "down" : "up"} tnum`}>
+                                    {e.delta < 0 ? "▼" : "▲"} {sym(t.currency)}
+                                    {Math.abs(Math.round(e.delta)).toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
               </article>
             );
           })}
