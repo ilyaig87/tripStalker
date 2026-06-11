@@ -511,6 +511,11 @@ export default function App() {
                   animationDelay: `${idx * 70}ms`,
                 }}
               >
+                {t.destination_photo_url && (
+                  <div className="ticket-photo" style={{ backgroundImage: `url(${t.destination_photo_url})` }}>
+                    {t.destination_city && <span className="ticket-photo-city">{t.destination_city}</span>}
+                  </div>
+                )}
                 <div className="ticket-head">
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
                     <span className="badge">{PROVIDER_LABEL[t.provider] ?? t.provider}</span>

@@ -384,6 +384,33 @@ body::before {
   pointer-events: none;
 }
 
+.ticket-photo {
+  height: 140px;
+  margin: -1.3rem -1.3rem 1rem;
+  border-radius: 1.05rem 1.05rem 0 0;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+.ticket-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0) 55%);
+}
+.ticket-photo-city {
+  position: absolute;
+  inset-block-end: 0.6rem;
+  inset-inline-start: 0.9rem;
+  z-index: 1;
+  color: #fff;
+  font-family: "Frank Ruhl Libre", serif;
+  font-weight: 700;
+  font-size: 1.4rem;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+
 .ticket-head {
   display: flex;
   align-items: flex-start;

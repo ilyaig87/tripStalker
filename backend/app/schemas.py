@@ -35,6 +35,7 @@ class TrackOut(BaseModel):
     target_hotel_id_or_name: str | None
     hotel_name: str | None
     destination_city: str | None = None
+    destination_photo_url: str | None = None
     initial_price: Decimal | None
     current_price: Decimal | None
     price_low: Decimal | None = None   # lowest price ever recorded

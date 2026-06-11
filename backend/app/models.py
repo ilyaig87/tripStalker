@@ -60,6 +60,7 @@ class TrackedItem(Base):
     target_hotel_id_or_name: Mapped[str | None] = mapped_column(String(255))
     hotel_name: Mapped[str | None] = mapped_column(String(255))  # resolved display name from the adapter
     destination_city: Mapped[str | None] = mapped_column(String(120))  # resolved city, for weather
+    destination_photo_url: Mapped[str | None] = mapped_column(String(500))  # Unsplash banner
 
     # Pricing
     initial_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))

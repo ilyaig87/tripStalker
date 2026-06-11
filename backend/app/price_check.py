@@ -9,9 +9,11 @@ import logging
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
+import httpx
 from sqlalchemy.orm import Session
 
 from app.adapters import ProviderError, get_adapter
+from app.adapters._http import get_json
 from app.config import settings
 from app.crud import get_active_tracks, get_tracks_by_email, record_price
 from app.models import TrackedItem, TrackStatus
@@ -67,6 +69,8 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
     item.flight_portion = result.flight_portion
     if result.destination_city:
         item.destination_city = result.destination_city
+    if item.destination_city and not item.destination_photo_url:
+        item.destination_photo_url = await _fetch_destination_photo(item.destination_city)
 
     baseline: Decimal = item.current_price or item.initial_price or result.price
     record_price(db, item, result.price, result.hotel_portion, result.flight_portion)
@@ -113,6 +117,26 @@ async def _store_alternative(db: Session, item: TrackedItem, adapter, current_pr
     item.alt_details = json.dumps(alt["details"]) if alt and alt.get("details") else None
     db.commit()
     return alt
+
+
+async def _fetch_destination_photo(city: str) -> str | None:
+    """A landscape destination photo from Unsplash (best-effort). Returns a CDN
+    URL sized for a card banner, or None."""
+    if not settings.unsplash_access_key:
+        return None
+    try:
+        data = await get_json(
+            "https://api.unsplash.com/search/photos",
+            params={"query": city, "per_page": 1, "orientation": "landscape", "content_filter": "high"},
+            headers={"Authorization": f"Client-ID {settings.unsplash_access_key}", "Accept-Version": "v1"},
+        )
+    except (httpx.HTTPError, ValueError):
+        return None
+    results = (data or {}).get("results") or []
+    if not results:
+        return None
+    raw = (results[0].get("urls") or {}).get("raw")
+    return f"{raw}&w=900&h=300&fit=crop&q=80" if raw else None
 
 
 async def run_price_checks(db: Session) -> dict:
