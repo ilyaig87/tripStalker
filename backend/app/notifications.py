@@ -1,4 +1,4 @@
-"""Price-drop notifications.
+"""Price-change notifications (drops AND rises).
 
 Sends a Telegram message when configured (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID),
 and always logs. A failed send never breaks the price-check loop.
@@ -15,7 +15,7 @@ from app.config import settings
 logger = logging.getLogger("tripstalker.notify")
 
 
-def notify_price_drop(
+def notify_price_change(
     email: str,
     hotel_name: str | None,
     old_price: Decimal,
@@ -24,16 +24,22 @@ def notify_price_drop(
     link: str | None = None,
     alternative: dict | None = None,
 ) -> None:
-    drop = old_price - new_price
-    pct = (drop / old_price * 100) if old_price else Decimal(0)
+    """Notify on a meaningful price move — DOWN (a deal) or UP (heads-up)."""
+    delta = new_price - old_price            # negative = drop, positive = rise
+    pct = (abs(delta) / old_price * 100) if old_price else Decimal(0)
     name = hotel_name or "ההצעה במעקב"
+    rising = delta > 0
 
-    logger.info("PRICE DROP %s | %s: %s -> %s %s (-%.1f%%)", email, name, old_price, new_price, currency, pct)
+    logger.info("PRICE %s %s | %s: %s -> %s %s (%+.1f%%)",
+                "RISE" if rising else "DROP", email, name, old_price, new_price, currency,
+                float(delta / old_price * 100) if old_price else 0)
 
+    header = "📈 <b>עליית מחיר</b>" if rising else "✈️ <b>ירידת מחיר!</b>"
+    arrow = "↑" if rising else "−"
     lines = [
-        "✈️ <b>ירידת מחיר!</b>",
+        header,
         f"🏨 {name}",
-        f"💰 {old_price} ← {new_price} {currency}  (−{pct:.1f}%)",
+        f"💰 {old_price} ← {new_price} {currency}  ({arrow}{pct:.1f}%)",
     ]
     if link:
         lines.append(f'🔗 <a href="{link}">לצפייה בהצעה</a>')
@@ -45,6 +51,10 @@ def notify_price_drop(
         if alternative.get("url"):
             lines.append(f'🔗 <a href="{alternative["url"]}">לחלופה הזולה</a>')
     _send_telegram("\n".join(lines))
+
+
+# Backward-compat alias: existing callers may still import notify_price_drop.
+notify_price_drop = notify_price_change
 
 
 def _send_telegram(text: str) -> bool:

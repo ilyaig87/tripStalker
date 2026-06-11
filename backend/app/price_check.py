@@ -17,7 +17,7 @@ from app.adapters._http import get_json
 from app.config import settings
 from app.crud import get_active_tracks, get_tracks_by_email, record_price
 from app.models import TrackedItem, TrackStatus
-from app.notifications import notify_price_drop
+from app.notifications import notify_price_change
 from app.url_parser import ParsedUrl
 
 logger = logging.getLogger("tripstalker.price_check")
@@ -80,9 +80,11 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
     # Cheaper same-hotel/same-nights alternative on other dates (best-effort).
     alt = await _store_alternative(db, item, adapter, result.price)
 
+    # Notify on a meaningful move in EITHER direction (drop = deal, rise = heads-up).
     threshold = baseline * Decimal(str(settings.price_drop_threshold))
-    if result.price < baseline - threshold:
-        notify_price_drop(
+    delta = result.price - baseline
+    if abs(delta) > threshold:
+        notify_price_change(
             email=item.user.email,
             hotel_name=item.hotel_name or item.target_hotel_id_or_name,
             old_price=baseline,
@@ -91,13 +93,16 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
             link=item.raw_url,
             alternative=alt,
         )
-        item.status = TrackStatus.TRIGGERED
+        # Only a DROP marks the track as a "deal found"; a rise is informational.
+        if delta < 0:
+            item.status = TrackStatus.TRIGGERED
         db.commit()
         return {
             "track_id": item.id,
             "old_price": float(baseline),
             "new_price": float(result.price),
             "currency": result.currency,
+            "direction": "rise" if delta > 0 else "drop",
         }
     return None
 
