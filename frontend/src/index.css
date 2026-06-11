@@ -3,112 +3,123 @@
 @tailwind utilities;
 
 /* =========================================================================
-   TripStalker — "Departures Board" theme
-   A mechanical split-flap flight board at night. Deep slate void, glowing
-   phosphor accents, status lamps, flip-tile prices. Each track is a flight.
-   Display: Suez One (heavy slab) · Body: Heebo · Data: Azeret Mono (mono)
-   Three liveries: amber (split-flap) · solari (station green) · tokyo (neon)
-   NOTE: CSS-variable NAMES are kept stable (--teal/--down/--up/...) because
-   App.tsx references them inline; only their VALUES change per livery.
+   TripStalker — "Riviera" theme
+   A sun-washed Mediterranean travel journal. Warm ivory paper, a golden sun
+   bleeding from the top, postcard/boarding-pass cards with a luggage-tag spine
+   and a perforated price stub. Each tracked offer is a ticket to somewhere.
+   Display: Frank Ruhl Libre (editorial Hebrew serif) · Body: Assistant
+   Three liveries: riviera (aegean+terracotta) · santorini (blue+white) ·
+   sahara (sienna+olive). CSS-variable NAMES are kept stable (--teal/--down/
+   --up/--ink/--ink-faint/--spine) because App.tsx references them inline.
    ========================================================================= */
 :root {
-  /* surfaces */
-  --cream: #080b13;       /* page void */
-  --cream-deep: #131a2c;  /* lifted chip / expired bg */
-  --paper: #0e1320;       /* board strip surface */
+  /* paper surfaces */
+  --cream: #f6ecda;        /* page — warm ivory */
+  --cream-deep: #efe2cb;   /* sunk chip / expired bg */
+  --paper: #fffdf8;        /* card surface — barely-warm white */
 
-  /* type */
-  --ink: #f3ede0;
-  --ink-soft: #97a1ba;
-  --ink-faint: #5b6688;
+  /* ink */
+  --ink: #2c2519;          /* warm near-black */
+  --ink-soft: #6f6450;     /* muted brown-grey */
+  --ink-faint: #a99c82;    /* faded sepia */
 
   /* hairlines */
-  --line: #1d2536;
-  --line-strong: #2d3853;
+  --line: #e6d8bf;
+  --line-strong: #d8c4a0;
 
-  /* primary accent (amber phosphor) */
-  --teal: #f5b13d;
-  --teal-deep: #d9982b;
-  --teal-tint: #2a2112;
+  /* primary accent — aegean sea */
+  --teal: #0f766e;
+  --teal-deep: #0a5a54;
+  --teal-tint: #dcefe9;
 
-  /* price down = good (mint) / up = bad (coral) */
-  --down: #46e0a0;
-  --down-tint: #102a20;
-  --up: #ff6b5e;
-  --up-tint: #2a1513;
+  /* price down = good (olive-green) / up = bad (terracotta sunset) */
+  --down: #2f8f5b;
+  --down-tint: #def0e2;
+  --up: #cf5a34;
+  --up-tint: #f8e2d6;
 
-  --gold: #f5b13d;
-  --shadow: 0 0 0;        /* used as rgba(var(--shadow), a) → near-black glows */
-  --on-accent: #0a0e17;   /* text on the accent fill */
+  /* warm secondary — golden hour */
+  --sun: #e2a32f;
+  --sun-soft: #f3d9a0;
+  --terra: #cf5a34;        /* terracotta — CTA warmth */
+  --terra-deep: #b54824;
+
+  --on-accent: #fffaf0;    /* text on a filled accent */
+  --gold: #e2a32f;
 
   /* form fields */
-  --field: #0b101b;
-  --field-focus: #0f1626;
+  --field: #fffdf8;
+  --field-line: #e0cfac;
 
-  /* split-flap tile faces */
-  --flap-top: #1b2340;
-  --flap-bot: #10162b;
-
-  /* atmospheric glow tint at the top of the void */
-  --halo: rgba(245, 177, 61, 0.12);
+  /* atmospheric sun glow at the top of the page */
+  --halo: rgba(226, 163, 47, 0.22);
+  --sky: rgba(15, 118, 110, 0.05);
+  --shadow-warm: 28, 37, 25;
 }
 
-/* ===== Livery: Solari (Italian station board — emerald phosphor) ===== */
-[data-theme="solari"] {
-  --cream: #04100a;
-  --cream-deep: #0c1f16;
-  --paper: #07150e;
-  --ink: #e6f2ea;
-  --ink-soft: #84a597;
-  --ink-faint: #4d6e60;
-  --line: #143a29;
-  --line-strong: #1d5440;
-  --teal: #34e08a;
-  --teal-deep: #25b96e;
-  --teal-tint: #0c2418;
-  --down: #5cf0a8;
-  --down-tint: #0c2a1c;
-  --up: #ff7a5c;
-  --up-tint: #2a1411;
-  --gold: #34e08a;
-  --on-accent: #04140c;
-  --field: #061309;
-  --field-focus: #0a1c12;
-  --flap-top: #0e2a1d;
-  --flap-bot: #07160e;
-  --halo: rgba(52, 224, 138, 0.13);
+/* ===== Livery: Santorini (whitewash + aegean blue + bougainvillea) ===== */
+[data-theme="santorini"] {
+  --cream: #eef3f8;
+  --cream-deep: #e2eaf2;
+  --paper: #ffffff;
+  --ink: #1c2a3a;
+  --ink-soft: #5b6b80;
+  --ink-faint: #9fb0c4;
+  --line: #d9e3ef;
+  --line-strong: #c2d2e4;
+  --teal: #2563a6;
+  --teal-deep: #1c4e85;
+  --teal-tint: #dde9f6;
+  --down: #2f8f5b;
+  --down-tint: #dcf0e2;
+  --up: #d8557f;
+  --up-tint: #f8e0ea;
+  --sun: #2f8fd0;
+  --sun-soft: #bfe0f4;
+  --terra: #d8557f;
+  --terra-deep: #bd3f68;
+  --on-accent: #ffffff;
+  --gold: #2f8fd0;
+  --field: #ffffff;
+  --field-line: #cedcec;
+  --halo: rgba(47, 143, 208, 0.18);
+  --sky: rgba(37, 99, 166, 0.05);
+  --shadow-warm: 22, 40, 60;
 }
 
-/* ===== Livery: Tokyo (neon night — cyan + pink) ===== */
-[data-theme="tokyo"] {
-  --cream: #070912;
-  --cream-deep: #131a31;
-  --paper: #0d1124;
-  --ink: #eaf0ff;
-  --ink-soft: #9aa6cc;
-  --ink-faint: #5a6493;
-  --line: #1c2444;
-  --line-strong: #2c3766;
-  --teal: #4fd6ff;
-  --teal-deep: #2bb6e0;
-  --teal-tint: #0c2333;
-  --down: #5cf2c8;
-  --down-tint: #0a2a24;
-  --up: #ff6ba6;
-  --up-tint: #2a1320;
-  --gold: #ffd166;
-  --on-accent: #06101a;
-  --field: #0a0e1f;
-  --field-focus: #0f1530;
-  --flap-top: #162045;
-  --flap-bot: #0b1130;
-  --halo: rgba(79, 214, 255, 0.14);
+/* ===== Livery: Sahara (sand dunes + burnt sienna + olive) ===== */
+[data-theme="sahara"] {
+  --cream: #f3e7d2;
+  --cream-deep: #ecdcbf;
+  --paper: #fdf6e9;
+  --ink: #3a2a17;
+  --ink-soft: #7a6242;
+  --ink-faint: #b29874;
+  --line: #e3cfa8;
+  --line-strong: #d2b681;
+  --teal: #7a8b3a;
+  --teal-deep: #61702c;
+  --teal-tint: #e8ecc9;
+  --down: #6f8f2f;
+  --down-tint: #e7eecb;
+  --up: #bc5326;
+  --up-tint: #f6ddc9;
+  --sun: #d68a2a;
+  --sun-soft: #f0cf94;
+  --terra: #bc5326;
+  --terra-deep: #9f421b;
+  --on-accent: #fdf6e9;
+  --gold: #d68a2a;
+  --field: #fdf6e9;
+  --field-line: #ddc295;
+  --halo: rgba(214, 138, 42, 0.24);
+  --sky: rgba(122, 139, 58, 0.06);
+  --shadow-warm: 58, 42, 23;
 }
 
 * {
   box-sizing: border-box;
 }
-
 html {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -118,44 +129,34 @@ body {
   margin: 0;
   background: var(--cream);
   color: var(--ink);
-  font-family: "Heebo", system-ui, sans-serif;
-  /* the void: a soft phosphor halo up top, a vignette pulling the edges down */
+  font-family: "Assistant", system-ui, sans-serif;
+  font-size: 16px;
+  /* the sky: a warm sun halo up top, a faint sea wash at the bottom */
   background-image:
-    radial-gradient(1100px 520px at 50% -8%, var(--halo) 0%, transparent 62%),
-    radial-gradient(1200px 900px at 50% 120%, rgba(0, 0, 0, 0.55) 0%, transparent 60%);
+    radial-gradient(1200px 560px at 78% -10%, var(--halo) 0%, transparent 60%),
+    radial-gradient(900px 700px at 12% 108%, var(--sky) 0%, transparent 62%);
   background-attachment: fixed;
-  transition: background-color 0.4s ease;
+  transition: background-color 0.45s ease;
 }
 
-/* fine CRT scanlines — barely-there horizontal rhythm */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.5;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.018) 0 1px,
-    transparent 1px 3px
-  );
-  mix-blend-mode: overlay;
-}
-
-/* sensor grain on top of everything */
+/* faint paper grain over everything */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.35;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
 }
 
+/* ---- type utilities ---- */
 .font-display {
-  font-family: "Suez One", "Heebo", serif;
+  font-family: "Frank Ruhl Libre", "Assistant", serif;
+}
+.font-body {
+  font-family: "Assistant", system-ui, sans-serif;
 }
 .tnum {
   font-variant-numeric: tabular-nums;
@@ -166,33 +167,17 @@ body::after {
 .wrap {
   position: relative;
   z-index: 1;
-  max-width: 58rem;
+  max-width: 60rem;
   margin: 0 auto;
-  padding: clamp(1.75rem, 5vw, 3.75rem) 1.25rem 5rem;
+  padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 4vw, 2rem) 5rem;
 }
 
 /* ====================== header / masthead ====================== */
 header {
   position: relative;
-  padding-top: 1.4rem;
-}
-/* glowing LED strip across the very top of the board */
-header::before {
-  content: "";
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline: 0;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--teal) 18%,
-    var(--teal) 82%,
-    transparent
-  );
-  opacity: 0.85;
-  box-shadow: 0 0 14px var(--teal);
+  padding-block: 0.5rem 1.5rem;
+  margin-bottom: 2rem;
+  border-bottom: 1.5px solid var(--line);
 }
 .header-top {
   display: flex;
@@ -203,443 +188,586 @@ header::before {
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.9rem;
 }
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
-  background: var(--teal);
+  width: 3.1rem;
+  height: 3.1rem;
   color: var(--on-accent);
+  background:
+    radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--sun) 70%, white) 0%, var(--teal) 78%);
+  border-radius: 38% 62% 60% 40% / 50% 44% 56% 50%; /* organic blob — a little sun/island */
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--teal) 60%, transparent),
-    0 10px 30px -8px color-mix(in srgb, var(--teal) 65%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    0 8px 22px -8px color-mix(in srgb, var(--teal) 60%, transparent),
+    inset 0 2px 3px rgba(255, 255, 255, 0.45);
+  animation: bob 6s ease-in-out infinite;
+}
+@keyframes bob {
+  50% { transform: translateY(-3px) rotate(-2deg); }
 }
 .brand-title {
-  font-size: clamp(1.9rem, 5vw, 2.6rem);
-  font-weight: 400; /* Suez One is single-weight, already heavy */
-  line-height: 0.95;
-  letter-spacing: -0.005em;
+  font-size: clamp(2rem, 6vw, 2.9rem);
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: -0.01em;
+  color: var(--ink);
 }
 .brand-accent {
   color: var(--teal);
-  text-shadow: 0 0 22px color-mix(in srgb, var(--teal) 55%, transparent);
+  font-style: italic;
 }
 
-/* livery picker — little glass lamps */
+/* livery picker — three glass beads (sun / sea / sand) */
 .theme-picker {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
+  padding: 0.4rem 0.55rem;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 2px rgba(var(--shadow-warm), 0.05);
 }
 .swatch {
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 1.35rem;
+  height: 1.35rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
   cursor: pointer;
   padding: 0;
-  transition: transform 0.15s, box-shadow 0.2s, border-color 0.15s;
+  box-shadow: 0 1px 3px rgba(var(--shadow-warm), 0.25);
+  transition: transform 0.18s ease, box-shadow 0.2s ease;
 }
 .swatch:hover {
-  transform: scale(1.15);
+  transform: scale(1.18) rotate(8deg);
 }
 .swatch[aria-pressed="true"] {
-  border-color: rgba(255, 255, 255, 0.9);
   box-shadow:
-    0 0 0 2px var(--cream),
-    0 0 0 3px currentColor,
-    0 0 16px currentColor;
+    0 0 0 2px var(--paper),
+    0 0 0 3.5px currentColor;
 }
 
 .tagline {
-  margin-top: 0.7rem;
+  margin: 1rem 0 0;
+  max-width: 36rem;
   color: var(--ink-soft);
-  font-size: 1.02rem;
+  font-size: clamp(1.02rem, 2.4vw, 1.18rem);
   font-weight: 400;
-  letter-spacing: 0.01em;
+  line-height: 1.5;
 }
 
-/* ---- summary: glowing board counters ---- */
+/* ---- summary counters — postage tickets ---- */
 .summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1.6rem;
+  gap: 0.7rem;
   margin-top: 1.5rem;
-  padding-top: 1.2rem;
-  border-top: 1px solid var(--line);
 }
 .summary-item {
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
+  padding: 0.5rem 1rem 0.55rem;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  box-shadow: 0 6px 16px -12px rgba(var(--shadow-warm), 0.5);
 }
 .summary-num {
-  font-family: "Azeret Mono", ui-monospace, monospace;
-  font-weight: 700;
-  font-size: 1.4rem;
+  font-family: "Frank Ruhl Libre", serif;
+  font-weight: 900;
+  font-size: 1.55rem;
+  line-height: 1;
   color: var(--teal);
-  text-shadow: 0 0 16px color-mix(in srgb, var(--teal) 45%, transparent);
 }
 .summary-label {
   color: var(--ink-soft);
-  font-size: 0.9rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
-/* ====================== add-track console ====================== */
+/* ====================== add form panel ====================== */
 .panel {
   position: relative;
-  margin-top: 1.75rem;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--teal) 4%, var(--paper)), var(--paper));
-  border: 1px solid var(--line-strong);
-  border-radius: 1rem;
-  padding: 1.2rem;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 1.1rem;
+  padding: 1.4rem;
+  margin-bottom: 2.2rem;
   box-shadow:
-    0 30px 60px -40px rgba(0, 0, 0, 0.9),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 18px 40px -26px rgba(var(--shadow-warm), 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
+/* a thin sun ribbon along the top edge */
+.panel::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 1.4rem;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--teal), var(--sun), var(--terra));
+  opacity: 0.85;
+}
+
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
+  min-width: 0;
 }
 .field-label {
-  font-family: "Azeret Mono", ui-monospace, monospace;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: var(--ink-faint);
-  text-transform: uppercase;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  padding-inline-start: 0.2rem;
 }
 .input {
   width: 100%;
   background: var(--field);
-  border: 1px solid var(--line-strong);
-  border-radius: 0.6rem;
-  padding: 0.65rem 0.85rem;
+  border: 1.5px solid var(--field-line);
+  border-radius: 0.7rem;
+  padding: 0.7rem 0.9rem;
   font: inherit;
-  font-size: 0.98rem;
+  font-size: 1rem;
   color: var(--ink);
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.2s, background 0.15s;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 .input::placeholder {
   color: var(--ink-faint);
 }
 .input:focus {
+  outline: none;
   border-color: var(--teal);
-  background: var(--field-focus);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 22%, transparent),
-    0 0 18px -4px color-mix(in srgb, var(--teal) 40%, transparent);
+  background: var(--paper);
+  box-shadow: 0 0 0 3.5px var(--teal-tint);
 }
+
+/* ---- buttons ---- */
 .btn-primary {
-  border: 0;
-  cursor: pointer;
-  background: var(--teal);
+  white-space: nowrap;
+  background: var(--terra);
   color: var(--on-accent);
+  border: none;
+  border-radius: 0.7rem;
+  padding: 0.72rem 1.35rem;
   font: inherit;
   font-weight: 700;
-  font-size: 0.98rem;
-  border-radius: 0.6rem;
-  padding: 0.66rem 1.35rem;
-  white-space: nowrap;
+  font-size: 1rem;
+  cursor: pointer;
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--teal) 50%, transparent),
-    0 12px 30px -10px color-mix(in srgb, var(--teal) 70%, transparent);
-  transition: transform 0.12s, background 0.15s, box-shadow 0.2s, filter 0.15s;
+    0 10px 22px -10px color-mix(in srgb, var(--terra) 75%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: transform 0.16s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
-.btn-primary:hover {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-  box-shadow:
-    0 0 0 1px var(--teal),
-    0 16px 36px -10px color-mix(in srgb, var(--teal) 80%, transparent);
+.btn-primary:hover:not(:disabled) {
+  background: var(--terra-deep);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 28px -12px color-mix(in srgb, var(--terra) 80%, transparent);
 }
-.btn-primary:active {
+.btn-primary:active:not(:disabled) {
   transform: translateY(0);
 }
 .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.btn-check {
+  background: transparent;
+  color: var(--teal);
+  border: 1.5px solid var(--teal);
+  border-radius: 999px;
+  padding: 0.45rem 1.1rem;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.16s ease;
+}
+.btn-check:hover:not(:disabled) {
+  background: var(--teal);
+  color: var(--on-accent);
+  transform: translateY(-1px);
+}
+.btn-check:disabled {
   opacity: 0.55;
   cursor: progress;
 }
 
-.alert {
-  margin-top: 1rem;
-  background: var(--up-tint);
-  color: var(--up);
-  border: 1px solid color-mix(in srgb, var(--up) 40%, transparent);
-  border-radius: 0.6rem;
-  padding: 0.7rem 0.9rem;
-  font-size: 0.92rem;
-  font-weight: 600;
-}
-
-.section-label {
-  margin: 0;
-  font-family: "Suez One", serif;
-  font-size: 1.3rem;
-  font-weight: 400;
-}
+/* ---- section heading ---- */
 .section-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin: 2.4rem 0 1.1rem;
+  margin-bottom: 1.2rem;
 }
-.btn-check {
-  border: 1px solid var(--line-strong);
-  background: color-mix(in srgb, var(--teal) 6%, var(--paper));
+.section-label {
+  font-family: "Frank Ruhl Libre", serif;
+  font-weight: 700;
+  font-size: 1.5rem;
   color: var(--ink);
-  font: inherit;
-  font-weight: 600;
-  font-size: 0.9rem;
-  border-radius: 0.6rem;
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s,
-    box-shadow 0.2s;
+  position: relative;
+  padding-inline-start: 0.9rem;
 }
-.btn-check:hover:not(:disabled) {
-  border-color: var(--teal);
-  color: var(--teal);
-  transform: translateY(-1px);
-  box-shadow: 0 0 18px -6px color-mix(in srgb, var(--teal) 60%, transparent);
-}
-.btn-check:disabled {
-  opacity: 0.6;
-  cursor: progress;
+.section-label::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: 0.15rem;
+  width: 4px;
+  border-radius: 4px;
+  background: linear-gradient(var(--sun), var(--terra));
 }
 
-/* ====================== flight strip (ticket) ====================== */
+.alert {
+  background: var(--up-tint);
+  color: var(--terra-deep);
+  border: 1px solid color-mix(in srgb, var(--up) 35%, transparent);
+  border-radius: 0.7rem;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1.4rem;
+  font-weight: 600;
+}
+
+.empty {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: var(--ink-soft);
+  background:
+    repeating-linear-gradient(135deg, transparent 0 12px, rgba(var(--shadow-warm), 0.015) 12px 24px),
+    var(--paper);
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 1.1rem;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+/* ====================== TICKET — the star ====================== */
 .ticket {
   position: relative;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--teal) 3%, var(--paper)), var(--paper));
+  background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 0.95rem;
-  padding: 1.3rem 1.3rem 1.15rem;
+  border-radius: 1.2rem;
+  padding: 1.3rem 1.4rem 1.4rem;
+  /* the luggage-tag spine on the inline-start edge */
+  border-inline-start: 6px solid var(--spine, var(--teal));
   overflow: hidden;
   box-shadow:
-    0 28px 50px -36px rgba(0, 0, 0, 0.9),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.22s,
-    border-color 0.2s;
+    0 24px 48px -30px rgba(var(--shadow-warm), 0.6),
+    0 2px 6px -3px rgba(var(--shadow-warm), 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: transform 0.22s ease, box-shadow 0.28s ease;
 }
 .ticket:hover {
-  transform: translateY(-3px);
-  border-color: var(--line-strong);
+  transform: translateY(-4px);
   box-shadow:
-    0 40px 70px -36px rgba(0, 0, 0, 0.95),
-    0 0 30px -16px color-mix(in srgb, var(--spine, var(--teal)) 60%, transparent);
+    0 34px 60px -30px rgba(var(--shadow-warm), 0.62),
+    0 4px 10px -4px rgba(var(--shadow-warm), 0.18);
 }
-/* status lamp-bar on the inline-start edge */
-.ticket::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: 4px;
-  background: var(--spine, var(--teal));
-  box-shadow: 0 0 18px var(--spine, var(--teal));
-}
-/* mechanical seam: a dotted divider near the inline-end edge */
-.ticket::after {
-  content: "";
-  position: absolute;
-  inset-block: 16px;
-  inset-inline-end: 4.5rem;
-  width: 1px;
-  border-inline-end: 2px dotted var(--line-strong);
-  opacity: 0.55;
-  pointer-events: none;
+.ticket--gone {
+  filter: saturate(0.55);
+  opacity: 0.82;
+  border-style: dashed;
 }
 
+/* postcard photo header */
 .ticket-photo {
-  height: 150px;
-  margin: -1.3rem -1.3rem 1rem;
-  border-radius: 0.9rem 0.9rem 0 0;
+  position: relative;
+  height: 9.5rem;
+  margin: -1.3rem -1.4rem 1.1rem;
+  margin-inline-start: calc(-1.4rem - 6px);
   background-size: cover;
   background-position: center;
-  position: relative;
-  filter: saturate(1.05);
 }
 .ticket-photo::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    to top,
-    color-mix(in srgb, var(--paper) 92%, transparent) 2%,
-    rgba(0, 0, 0, 0.25) 45%,
-    rgba(0, 0, 0, 0) 75%
-  );
+  background: linear-gradient(to top, rgba(var(--shadow-warm), 0.7) 0%, transparent 55%);
 }
 .ticket-photo-city {
   position: absolute;
   inset-block-end: 0.7rem;
-  inset-inline-start: 1rem;
+  inset-inline-start: 1.4rem;
   z-index: 1;
+  font-family: "Frank Ruhl Libre", serif;
+  font-weight: 700;
+  font-size: 1.35rem;
   color: #fff;
-  font-family: "Suez One", serif;
-  font-weight: 400;
-  font-size: 1.5rem;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
   letter-spacing: 0.01em;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+}
+
+/* photo gallery nav */
+.photo-nav {
+  position: absolute;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, background 0.2s ease, transform 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.ticket-photo:hover .photo-nav {
+  opacity: 1;
+}
+.photo-nav:hover {
+  background: #fff;
+}
+.photo-nav--prev {
+  inset-inline-start: 0.6rem;
+}
+.photo-nav--next {
+  inset-inline-end: 0.6rem;
+}
+.photo-dots {
+  position: absolute;
+  inset-block-end: 0.6rem;
+  inset-inline-end: 1.4rem;
+  z-index: 2;
+  display: flex;
+  gap: 0.35rem;
+}
+.photo-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.photo-dot.is-on {
+  background: #fff;
+  transform: scale(1.25);
 }
 
 .ticket-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.7rem;
+  flex-wrap: wrap;
 }
+
 .badge {
-  display: inline-block;
-  font-family: "Azeret Mono", ui-monospace, monospace;
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--teal);
-  background: var(--teal-tint);
-  border: 1px solid color-mix(in srgb, var(--teal) 28%, transparent);
-  border-radius: 0.35rem;
-  padding: 0.2rem 0.5rem;
-}
-.status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-family: "Azeret Mono", ui-monospace, monospace;
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.74rem;
+  font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  border-radius: 999px;
-  padding: 0.22rem 0.65rem;
+  color: var(--teal-deep);
+  background: var(--teal-tint);
+  border-radius: 0.4rem;
+  padding: 0.22rem 0.55rem;
 }
-/* glowing status lamp */
-.status::before {
-  content: "";
-  width: 0.5rem;
-  height: 0.5rem;
+
+.status {
+  font-size: 0.78rem;
+  font-weight: 700;
   border-radius: 999px;
-  background: currentColor;
-  box-shadow: 0 0 8px currentColor, 0 0 2px currentColor;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid transparent;
 }
 .status--active {
-  color: var(--teal);
+  color: var(--teal-deep);
   background: var(--teal-tint);
+  border-color: color-mix(in srgb, var(--teal) 25%, transparent);
 }
 .status--triggered {
   color: var(--down);
   background: var(--down-tint);
+  border-color: color-mix(in srgb, var(--down) 35%, transparent);
 }
-.status--triggered::before {
-  animation: lamp-pulse 1.4s ease-in-out infinite;
-}
-.status--expired {
-  color: var(--ink-soft);
-  background: var(--cream-deep);
-}
+.status--expired,
 .status--gone {
   color: var(--up);
   background: var(--up-tint);
-}
-@keyframes lamp-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 9px currentColor, 0 0 3px currentColor; }
-  50% { opacity: 0.5; box-shadow: 0 0 3px currentColor; }
-}
-
-/* offer no longer available */
-.ticket--gone {
-  opacity: 0.82;
-}
-.note-gone {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin-top: 0.75rem;
-  padding: 0.55rem 0.75rem;
-  background: var(--up-tint);
-  border: 1px solid color-mix(in srgb, var(--up) 35%, transparent);
-  border-radius: 0.55rem;
-  color: var(--up);
-  font-size: 0.86rem;
-  font-weight: 600;
+  border-color: color-mix(in srgb, var(--up) 32%, transparent);
 }
 
 .deal {
-  display: inline-flex;
-  align-items: center;
-  font-family: "Azeret Mono", ui-monospace, monospace;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 0.76rem;
+  font-weight: 700;
   border-radius: 999px;
-  padding: 0.22rem 0.6rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--line-strong);
+  background: var(--cream-deep);
+  color: var(--ink-soft);
 }
 .deal--great {
   color: var(--down);
   background: var(--down-tint);
+  border-color: color-mix(in srgb, var(--down) 30%, transparent);
 }
 .deal--high {
   color: var(--up);
   background: var(--up-tint);
+  border-color: color-mix(in srgb, var(--up) 30%, transparent);
 }
-.deal--mid {
-  color: var(--gold);
-  background: color-mix(in srgb, var(--gold) 14%, transparent);
+
+/* head action buttons */
+.history-btn,
+.reset-btn,
+.delete-btn {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.55rem;
+  padding: 0.3rem 0.6rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+.history-btn:hover {
+  color: var(--teal);
+  border-color: var(--teal);
+  background: var(--teal-tint);
+}
+.reset-btn:hover {
+  color: var(--sun);
+  border-color: var(--sun);
+}
+.delete-btn:hover {
+  color: var(--up);
+  border-color: var(--up);
+  background: var(--up-tint);
 }
 
 .hotel {
-  margin-top: 0.75rem;
-  font-family: "Suez One", serif;
-  font-size: 1.4rem;
-  font-weight: 400;
-  line-height: 1.18;
-  letter-spacing: 0.005em;
+  font-family: "Frank Ruhl Libre", serif;
+  font-weight: 700;
+  font-size: clamp(1.3rem, 3.5vw, 1.7rem);
+  line-height: 1.2;
+  color: var(--ink);
+  margin: 0.9rem 0 0;
 }
 
-/* ---- search details ---- */
+/* stars overlaid on the photo */
+.ticket-photo-stars {
+  position: absolute;
+  inset-block-start: 0.7rem;
+  inset-inline-end: 1.4rem;
+  z-index: 1;
+  color: var(--sun);
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+}
+
+/* review score + room + board line under the hotel name */
+.hotel-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+  margin-top: 0.55rem;
+}
+.review-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  background: var(--teal);
+  color: var(--on-accent);
+  font-weight: 800;
+  font-size: 0.92rem;
+  border-radius: 0.5rem;
+  padding: 0.16rem 0.5rem;
+}
+.review-pill small {
+  font-weight: 600;
+  font-size: 0.74rem;
+  opacity: 0.92;
+}
+.meta-soft {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.hotel-highlight {
+  margin: 0.7rem 0 0;
+  font-size: 0.95rem;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+/* feature tag chips */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+}
+.tag {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--teal-deep);
+  background: var(--teal-tint);
+  border: 1px solid color-mix(in srgb, var(--teal) 18%, transparent);
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+}
+
+/* cancellation / flight meta chips */
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+.meta-chip {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--cream-deep);
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  padding: 0.28rem 0.65rem;
+}
+.meta-chip--ok {
+  color: var(--down);
+  background: var(--down-tint);
+  border-color: color-mix(in srgb, var(--down) 25%, transparent);
+}
+
+/* trip facts */
 .stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem 1.6rem;
-  margin-top: 0.95rem;
+  gap: 0.5rem 1.4rem;
+  margin-top: 0.9rem;
 }
 .stat {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.5rem;
 }
 .stat-ico {
-  display: grid;
-  place-items: center;
-  width: 1.8rem;
-  height: 1.8rem;
-  border-radius: 0.45rem;
-  background: var(--field);
-  border: 1px solid var(--line-strong);
-  font-size: 0.9rem;
+  font-size: 1.05rem;
+  filter: saturate(1.1);
 }
 .stat-label {
-  font-family: "Azeret Mono", ui-monospace, monospace;
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  color: var(--ink-faint);
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
 }
 .stat-val {
   font-size: 0.95rem;
@@ -647,323 +775,395 @@ header::before {
   color: var(--ink);
 }
 
-/* ====================== price + actions ====================== */
+.note-gone {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--up-tint);
+  border-radius: 0.7rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--terra-deep);
+}
+
+/* ---- the perforated price stub ---- */
 .foot {
   display: flex;
-  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
   margin-top: 1.2rem;
-  padding-top: 1.1rem;
-  border-top: 1px solid var(--line);
+  padding-top: 1.2rem;
+  position: relative;
+  border-top: 2px dashed var(--line-strong);
 }
+/* punch-holes where the stub tears off */
+.foot::before,
+.foot::after {
+  content: "";
+  position: absolute;
+  inset-block-start: -10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--cream);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.foot::before { inset-inline-start: -1.9rem; }
+.foot::after { inset-inline-end: -1.9rem; }
+
 .price-now {
   display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  perspective: 700px; /* gives the flap tiles real depth */
+  align-items: baseline;
+  gap: 0.7rem;
+  flex-wrap: wrap;
 }
 .price-cur {
   display: inline-flex;
-  align-items: flex-end;
-  gap: 0.45rem;
-  line-height: 1;
+  align-items: baseline;
+  gap: 0.4rem;
 }
 .price-cur small {
-  font-family: "Azeret Mono", monospace;
-  font-weight: 500;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--ink-faint);
-  margin-bottom: 0.25rem;
 }
 
-/* ---- the signature: split-flap price tiles ---- */
+/* the headline price — one clean, confident serif number (LTR inside the RTL page) */
 .flap-row {
   display: inline-flex;
-  gap: 3px;
-  direction: ltr; /* prices read left→right even in RTL layout */
-}
-.flap-tile {
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-width: 1.5rem;
-  height: 2.55rem;
-  padding: 0 0.2rem;
-  font-family: "Azeret Mono", ui-monospace, monospace;
-  font-weight: 700;
-  font-size: 1.7rem;
+  align-items: baseline;
+  direction: ltr;
+  font-family: "Frank Ruhl Libre", serif;
+  font-weight: 900;
+  font-size: clamp(2.1rem, 7vw, 2.9rem);
   line-height: 1;
-  color: var(--teal);
-  background: linear-gradient(180deg, var(--flap-top) 0 50%, var(--flap-bot) 50% 100%);
-  border-radius: 5px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 -10px 16px -10px rgba(0, 0, 0, 0.85),
-    0 6px 14px -8px rgba(0, 0, 0, 0.9);
-  text-shadow: 0 0 16px color-mix(in srgb, var(--teal) 55%, transparent);
-  overflow: hidden;
-  transform-origin: center top;
-  animation: flap-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-/* center hinge seam of each flap */
-.flap-tile::after {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  top: 50%;
-  height: 1px;
-  background: rgba(0, 0, 0, 0.7);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05);
+  letter-spacing: -0.01em;
+  color: var(--ink);
 }
 .flap-gap {
-  width: 0.45rem;
+  width: 0.12em;
 }
-@keyframes flap-in {
-  0% { transform: rotateX(-90deg); opacity: 0; }
-  62% { transform: rotateX(9deg); opacity: 1; }
-  100% { transform: rotateX(0); opacity: 1; }
+.flap-tile {
+  display: inline-block;
+  animation: price-in 0.45s ease both;
 }
-.ticket--gone .flap-tile {
-  color: var(--ink-faint);
-  text-shadow: none;
-  opacity: 0.7;
+@keyframes price-in {
+  from { opacity: 0; transform: translateY(0.18em); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
+.delta {
+  font-size: 0.92rem;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 0.18rem 0.6rem;
+}
+.delta--down {
+  color: var(--down);
+  background: var(--down-tint);
+}
+.delta--up {
+  color: var(--up);
+  background: var(--up-tint);
+}
+.delta--flat {
+  color: var(--ink-faint);
+  background: var(--cream-deep);
+}
+
+.ils-approx {
+  margin-top: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--teal-deep);
+}
 .price-sub {
-  margin-top: 0.45rem;
-  font-size: 0.85rem;
+  margin-top: 0.3rem;
+  font-size: 0.88rem;
   color: var(--ink-soft);
 }
 .price-reg {
   color: var(--ink-faint);
 }
-.ils-approx {
-  margin-top: 0.3rem;
-  font-family: "Azeret Mono", monospace;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--ink-soft);
-}
 .breakdown {
-  margin-top: 0.35rem;
-  font-size: 0.85rem;
-  font-weight: 500;
+  margin-top: 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+.alt-flight {
+  margin-top: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.82rem;
   color: var(--ink-soft);
 }
 .checked-at {
-  margin-top: 0.35rem;
-  font-family: "Azeret Mono", monospace;
-  font-size: 0.74rem;
-  letter-spacing: 0.02em;
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
   color: var(--ink-faint);
+  font-weight: 500;
 }
 
-/* delta chip — both directions */
-.delta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-family: "Azeret Mono", monospace;
-  font-size: 0.88rem;
-  font-weight: 700;
-  border-radius: 0.45rem;
-  padding: 0.3rem 0.6rem;
-  white-space: nowrap;
-}
-.delta--down {
-  color: var(--down);
-  background: var(--down-tint);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--down) 30%, transparent);
-}
-.delta--up {
-  color: var(--up);
-  background: var(--up-tint);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--up) 30%, transparent);
-}
-.delta--flat {
-  color: var(--ink-soft);
-  background: var(--cream-deep);
-  font-weight: 600;
-}
-
+/* offer links */
 .offer-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: var(--on-accent);
+  gap: 0.4rem;
+  white-space: nowrap;
   background: var(--teal);
-  border: 1px solid var(--teal);
-  border-radius: 0.6rem;
-  padding: 0.58rem 0.95rem;
+  color: var(--on-accent);
   text-decoration: none;
-  transition: filter 0.15s, transform 0.12s, box-shadow 0.2s;
-  box-shadow: 0 10px 26px -12px color-mix(in srgb, var(--teal) 70%, transparent);
+  border-radius: 0.7rem;
+  padding: 0.62rem 1rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+  box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--teal) 80%, transparent);
+  transition: transform 0.16s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 .offer-link:hover {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-  box-shadow: 0 14px 30px -12px color-mix(in srgb, var(--teal) 85%, transparent);
+  background: var(--teal-deep);
+  transform: translateY(-2px);
 }
 .offer-link--alt {
   background: transparent;
   color: var(--teal);
-  border-color: color-mix(in srgb, var(--teal) 45%, transparent);
+  border: 1.5px solid var(--teal);
   box-shadow: none;
 }
 .offer-link--alt:hover {
   background: var(--teal-tint);
-  filter: none;
+  color: var(--teal-deep);
 }
 
-.delete-btn,
-.reset-btn,
-.history-btn {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  color: var(--ink-faint);
-  font: inherit;
-  font-size: 0.83rem;
-  font-weight: 600;
-  padding: 0.2rem 0.3rem;
-  transition: color 0.15s, text-shadow 0.15s;
-}
-.history-btn:hover,
-.reset-btn:hover {
-  color: var(--teal);
-  text-shadow: 0 0 12px color-mix(in srgb, var(--teal) 55%, transparent);
-}
-.delete-btn:hover {
-  color: var(--up);
-  text-shadow: 0 0 12px color-mix(in srgb, var(--up) 55%, transparent);
-}
-
-/* ---- price-history panel ---- */
-.history-panel {
-  margin-top: 1rem;
-  padding-top: 0.95rem;
-  border-top: 1px dashed var(--line-strong);
-}
-.history-empty {
-  color: var(--ink-faint);
-  font-size: 0.9rem;
-}
-.sparkline {
-  display: block;
-  width: 100%;
-  max-width: 260px;
-  height: 46px;
-  margin-bottom: 0.8rem;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--teal) 30%, transparent));
-}
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  max-height: 220px;
-  overflow-y: auto;
-}
-.history-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  font-size: 0.86rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid var(--line);
-}
-.history-main {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-}
-.history-date {
-  font-family: "Azeret Mono", monospace;
-  color: var(--ink-faint);
-  min-width: 3.2rem;
-}
-.history-price {
-  font-weight: 700;
-  min-width: 4.5rem;
-}
-.history-why {
-  display: flex;
-  gap: 0.9rem;
-  padding-inline-start: 3.9rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--ink-soft);
-}
-
+/* cheaper-alternative suggestion */
 .alt-suggest {
   display: block;
-  margin-top: 0.95rem;
-  padding: 0.75rem 0.85rem;
-  background: var(--teal-tint);
-  border: 1px solid color-mix(in srgb, var(--teal) 30%, transparent);
-  border-radius: 0.6rem;
-  font-size: 0.92rem;
-  font-weight: 500;
-  color: var(--ink);
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  background:
+    radial-gradient(140px 60px at 92% 0%, color-mix(in srgb, var(--sun) 18%, transparent), transparent 70%),
+    var(--teal-tint);
+  border: 1px solid color-mix(in srgb, var(--teal) 22%, transparent);
+  border-radius: 0.8rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--teal-deep);
   text-decoration: none;
-  transition: background 0.15s, transform 0.12s, box-shadow 0.2s;
+  transition: transform 0.16s ease, box-shadow 0.2s ease;
 }
 .alt-suggest:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 0 22px -8px color-mix(in srgb, var(--teal) 55%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 26px -16px color-mix(in srgb, var(--teal) 55%, transparent);
 }
 .alt-save {
   color: var(--down);
   font-weight: 800;
 }
-.alt-flight {
+
+/* ====================== history panel ====================== */
+.history-panel {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  background: var(--cream-deep);
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+}
+.history-empty {
+  color: var(--ink-soft);
+  font-weight: 500;
+  text-align: center;
+}
+.sparkline {
+  width: 100%;
+  height: 48px;
+  margin-bottom: 0.8rem;
+  overflow: visible;
+}
+
+.history-list {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  margin-top: 0.45rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--teal);
+  gap: 0.55rem;
 }
-.alt-airline {
-  font-weight: 700;
+.history-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.88rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line);
 }
-
-.empty {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--teal) 3%, var(--paper)), var(--paper));
-  border: 1px dashed var(--line-strong);
-  border-radius: 1rem;
-  padding: 3.25rem 1.5rem;
-  text-align: center;
+.history-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.history-main {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.history-date {
   color: var(--ink-faint);
-  font-size: 1rem;
+  font-weight: 600;
+  min-width: 5.6rem;
+}
+.history-price {
+  font-weight: 800;
+  min-width: 4.5rem;
+  color: var(--ink);
+}
+.history-parts {
+  display: flex;
+  gap: 0.9rem;
+  padding-inline-start: 6.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.history-why {
+  display: flex;
+  gap: 0.9rem;
+  padding-inline-start: 6.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-soft);
 }
 
-/* ---- staggered reveal on load ---- */
-@keyframes reveal {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* ---- staggered card reveal on load ---- */
 .reveal {
-  animation: reveal 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  opacity: 0;
+  transform: translateY(16px);
+  animation: reveal 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+@keyframes reveal {
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal,
-  .flap-tile,
-  .status--triggered::before {
-    animation: none;
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ====================== account + auth (Riviera) ====================== */
+.header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.7rem;
+}
+.account {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.account-email {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  max-width: 15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.logout-btn {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.34rem 0.9rem;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease,
+    transform 0.16s ease;
+}
+.logout-btn:hover {
+  color: var(--on-accent);
+  background: var(--terra);
+  border-color: var(--terra);
+  transform: translateY(-1px);
+}
+
+/* login / register gate */
+.auth-wrap {
+  max-width: 30rem;
+}
+.auth-card {
+  margin-top: 0.5rem;
+}
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  padding: 0.34rem;
+  margin-bottom: 1.5rem;
+  background: var(--cream-deep);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.auth-tab {
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.96rem;
+  padding: 0.55rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.auth-tab.is-active {
+  color: var(--on-accent);
+  background: var(--teal);
+  box-shadow: 0 8px 18px -9px color-mix(in srgb, var(--teal) 75%, transparent);
+}
+.auth-switch {
+  margin: 1.2rem 0 0;
+  text-align: center;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+.auth-link {
+  border: none;
+  background: transparent;
+  color: var(--terra);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+}
+.auth-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---- responsive: stack the add-form on small screens ---- */
+@media (max-width: 640px) {
+  .panel > div {
+    grid-template-columns: 1fr !important;
+  }
+  .ticket-photo {
+    height: 8rem;
+  }
+}
+@media (max-width: 540px) {
+  .header-actions {
+    align-items: flex-start;
+  }
+  .account-email {
+    max-width: 60vw;
   }
 }

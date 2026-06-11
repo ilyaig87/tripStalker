@@ -66,13 +66,24 @@ npm run dev                          # http://localhost:5173
 ```
 
 ## API
-| Method | Path                          | Description                          |
-|--------|-------------------------------|--------------------------------------|
-| POST   | `/api/track`                  | Register a track (`email`, `url`)    |
-| GET    | `/api/user/tracks?email=...`  | List a user's tracks                 |
-| GET    | `/api/track/{id}`             | Track detail + price history         |
-| DELETE | `/api/track/{id}`             | Stop tracking                        |
-| GET    | `/health`                     | Health + supported providers         |
+Auth is email + password → a JWT bearer token. Send it as
+`Authorization: Bearer <token>` on every track endpoint; the owner is taken from
+the token (never from the request body).
+
+| Method | Path                     | Auth | Description                          |
+|--------|--------------------------|------|--------------------------------------|
+| POST   | `/api/auth/register`     | —    | Create account (`email`, `password`) → token |
+| POST   | `/api/auth/login`        | —    | Sign in (`email`, `password`) → token |
+| GET    | `/api/auth/me`           | ✓    | Current user                         |
+| POST   | `/api/track`             | ✓    | Register a track (`url`)             |
+| GET    | `/api/user/tracks`       | ✓    | List my tracks                       |
+| POST   | `/api/user/refresh`      | ✓    | Re-check all my tracks now           |
+| GET    | `/api/track/{id}`        | ✓    | Track detail + price history (owner) |
+| POST   | `/api/track/{id}/reset`  | ✓    | Re-baseline to current price (owner) |
+| DELETE | `/api/track/{id}`        | ✓    | Stop tracking (owner)                |
+| GET    | `/health`                | —    | Health + supported providers         |
+
+> Set `JWT_SECRET` to a long random value in production (`openssl rand -hex 32`).
 
 ## MVP notes / going live
 - **Mock mode:** with no API keys the `GlobalAdapter` returns deterministic

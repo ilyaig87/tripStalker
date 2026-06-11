@@ -68,6 +68,12 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
     item.hotel_portion = result.hotel_portion
     item.flight_portion = result.flight_portion
     item.flight_details = result.flight_details
+    # Self-heal the display name: the adapter resolves the real HOTEL name
+    # (older rows sometimes stored the room type instead).
+    if result.hotel_name:
+        item.hotel_name = result.hotel_name
+    if result.hotel_meta:
+        item.hotel_meta = json.dumps(result.hotel_meta, ensure_ascii=False)
     if result.destination_city:
         item.destination_city = result.destination_city
     if result.hotel_url:

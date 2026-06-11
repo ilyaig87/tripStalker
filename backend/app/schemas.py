@@ -4,13 +4,37 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, HttpUrl
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl
 
 from app.models import TrackStatus
 
 
-class TrackCreate(BaseModel):
+# ---- auth ----
+class UserRegister(BaseModel):
     email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    email: EmailStr
+    created_at: datetime
+
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+
+class TrackCreate(BaseModel):
+    # The owner is taken from the auth token, not the request body.
     url: HttpUrl
 
 
@@ -54,6 +78,7 @@ class TrackOut(BaseModel):
     hotel_portion: Decimal | None = None
     flight_portion: Decimal | None = None
     flight_details: str | None = None
+    hotel_meta: str | None = None  # JSON: stars, reviews, board, room, tags, photo, maps…
     created_at: datetime
 
 

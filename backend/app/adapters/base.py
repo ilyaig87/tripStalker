@@ -23,6 +23,7 @@ class PriceResult:
     hotel_portion: Decimal | None = None   # package breakdown: hotel part (if known)
     flight_portion: Decimal | None = None  # package breakdown: flight part (if known)
     flight_details: str | None = None      # JSON: package flight legs (times, airline)
+    hotel_meta: dict | None = None     # rich extras: stars, reviews, board, room, tags, photo, maps…
     raw: dict | None = None            # original provider payload, for debugging
 
 

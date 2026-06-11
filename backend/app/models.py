@@ -36,6 +36,9 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
+    # Nullable so legacy email-only users (created before auth) still load; they
+    # "claim" their account by registering, which sets this. Login requires it.
+    password_hash: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tracked_items: Mapped[list[TrackedItem]] = relationship(
@@ -62,6 +65,9 @@ class TrackedItem(Base):
     hotel_url: Mapped[str | None] = mapped_column(String(500))  # hotel's own site (direct-check link)
     destination_city: Mapped[str | None] = mapped_column(String(120))  # resolved city, for weather
     destination_photo_url: Mapped[str | None] = mapped_column(String(500))  # Unsplash banner
+    # Rich provider metadata (stars, reviews, board, room, tags, photo, maps…),
+    # JSON-encoded so we don't add a column per field.
+    hotel_meta: Mapped[str | None] = mapped_column(Text)
 
     # Pricing
     initial_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))

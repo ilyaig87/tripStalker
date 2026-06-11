@@ -82,7 +82,52 @@ class HolidayFinderAdapter(BaseProviderAdapter):
             raise ProviderError(f"HolidayFinder fetch failed: {exc}") from exc
 
         # The luggage choice is encoded in the bc as ...st<n>:<tier>:<board>.
-        return self._extract_price(data, parsed, luggage_tier=_luggage_tier(bc))
+        result = self._extract_price(data, parsed, luggage_tier=_luggage_tier(bc))
+
+        # HF sometimes returns an "on-the-fly" response with a contaminated hotel
+        # name and just one room photo. Hotel name + gallery are date-independent,
+        # so enrich them from a cached date-variant of the SAME offer.
+        meta = result.hotel_meta or {}
+        photos = meta.get("photos") or ([meta["photo"]] if meta.get("photo") else [])
+        if not result.hotel_name or len(photos) < 2:
+            occupancy = {"adult": params["adult"], "child": params["child"], "airports[]": params["airports[]"]}
+            name, gallery = await self._probe_hotel_details(bc, occupancy)
+            if name and not result.hotel_name:
+                result.hotel_name = name
+            if len(gallery) > len(photos):
+                result.hotel_meta = {**meta, "photos": gallery, "photo": gallery[0]}
+        return result
+
+    async def _probe_hotel_details(self, bc: str, occupancy: dict) -> tuple[str | None, list[str]]:
+        """Resolve a clean hotel name + photo gallery by querying cached date
+        variants of the same offer (same occupancy). Best-effort — ('', []) on fail."""
+        import re
+
+        name: str | None = None
+        photos: list[str] = []
+        for repl in ("o150926i200926", "o151226i201226", "o150127i200127"):
+            cand = re.sub(r"o\d{6}i\d{6}", repl, bc)
+            if cand == bc:
+                continue
+            params = {
+                **occupancy, "lang": "he",
+                "muid": uuid.uuid4().hex, "tt": str(int(time.time() * 1000)),
+            }
+            try:
+                d = await get_json(f"{_API_BASE}/{cand}", params=params, headers=_HEADERS, proxy=settings.proxy_url or None)
+            except (httpx.HTTPError, ValueError):
+                continue
+            h = (d.get("data") or {}).get("recommendedRate", {}).get("hotel") or {}
+            nm = h.get("hotelName") or h.get("name")
+            room = (h.get("selectedRoom") or {}).get("roomName")
+            if nm and nm != room and not name:
+                name = nm
+            imgs = [im for im in (h.get("images") or []) if isinstance(im, str) and im.startswith("http")]
+            if len(imgs) > len(photos):
+                photos = imgs
+            if name and len(photos) >= 3:
+                break
+        return name, photos[:10]
 
     def _extract_price(self, data: dict, parsed: ParsedUrl, luggage_tier: str | None = None) -> PriceResult:
         rate = (data.get("data") or {}).get("recommendedRate") or {}
@@ -113,14 +158,22 @@ class HolidayFinderAdapter(BaseProviderAdapter):
             flight_portion = Decimal(str(naked + luggage_added)).quantize(Decimal("1.00"))
 
         per_pax = rate_include.get("total_price_per_pax")
-        hotel = (rate.get("hotel") or {}).get("name") or f"HolidayFinder offer #{parsed.target_hotel_id_or_name}"
+        # The real HOTEL name. HF is inconsistent: for some dates the `name`/
+        # `hotelName` field is contaminated with the selected ROOM name. Detect
+        # that (name == the room) and return None so we never show a room as the
+        # hotel — the caller keeps any previously-resolved real name instead.
+        hotel_obj = rate.get("hotel") or {}
+        raw_name = hotel_obj.get("hotelName") or hotel_obj.get("name")
+        room_name = (hotel_obj.get("selectedRoom") or {}).get("roomName")
+        hotel = raw_name if (raw_name and raw_name != room_name) else None
         dest_city = ((data.get("data") or {}).get("destination_data") or {}).get("name_en")
 
         cfd = rate.get("cheapest_flight_data") or {}
         legs = {"out": _hf_flight_leg(cfd), "back": _hf_flight_leg(cfd.get("default_inbound") or {})}
         flight_details = json.dumps(legs) if (legs["out"] or legs["back"]) else None
 
-        hotel_url = (rate.get("hotel") or {}).get("hotelWebsiteUrl") or None
+        hotel_url = hotel_obj.get("hotelWebsiteUrl") or None
+        hotel_meta = _hf_hotel_meta(hotel_obj, cfd)
         return PriceResult(
             price=Decimal(str(final)).quantize(Decimal("1.00")),
             currency="USD",  # the site quotes packages in USD
@@ -130,6 +183,7 @@ class HolidayFinderAdapter(BaseProviderAdapter):
             hotel_portion=hotel_portion,
             flight_portion=flight_portion,
             flight_details=flight_details,
+            hotel_meta=hotel_meta,
             raw={
                 "base_total_price": total,
                 "luggage_tier": luggage_tier,
@@ -230,6 +284,58 @@ def _hf_flight_leg(node: dict) -> dict | None:
         "arr": (escales[-1] or {}).get("landing_hour"),
         "stops": node.get("nb_escales") or 0,
     }
+
+
+def _hf_hotel_meta(hotel: dict, cfd: dict) -> dict | None:
+    """Collect the rich extras HolidayFinder exposes about a hotel + its flight,
+    into a compact dict for display. Returns None if nothing useful was found."""
+    meta: dict = {}
+
+    stars = hotel.get("rating")
+    if isinstance(stars, (int, float)) and stars:
+        meta["stars"] = int(stars)
+
+    rev = hotel.get("trustYouReviews") or {}
+    if isinstance(rev.get("reviewScore"), (int, float)):
+        meta["review_score"] = round(float(rev["reviewScore"]), 1)
+        meta["review_count"] = rev.get("reviewCount")
+
+    room = hotel.get("selectedRoom") or {}
+    if room.get("roomName"):
+        meta["room"] = room["roomName"]
+    board = (hotel.get("room_board") or "").strip()
+    if board:
+        meta["board"] = board
+
+    if hotel.get("refundable") and hotel.get("refundableUntil"):
+        meta["refundable_until"] = hotel["refundableUntil"]
+    meta["free_cancellation"] = bool(hotel.get("has_free_cancellation_option"))
+
+    tags = hotel.get("hotelTags") or []  # prefer the Hebrew tags for an RTL UI
+    if isinstance(tags, list) and tags:
+        meta["tags"] = [t for t in tags if isinstance(t, str)][:5]
+
+    if hotel.get("google_maps_url"):
+        meta["maps_url"] = hotel["google_maps_url"]
+    if hotel.get("packageHighlightOnCard"):
+        meta["highlight"] = hotel["packageHighlightOnCard"].strip()
+
+    images = hotel.get("images") or []
+    if isinstance(images, list):
+        photos = [im for im in images if isinstance(im, str) and im.startswith("http")][:10]
+        if photos:
+            meta["photos"] = photos
+            meta["photo"] = photos[0]  # single, kept for back-compat
+
+    # flight at-a-glance
+    if cfd.get("flight_type"):
+        meta["flight_kind"] = cfd["flight_type"]  # "charter" | "regular"
+    if cfd.get("company_name"):
+        meta["airline"] = cfd["company_name"]
+    if cfd.get("flight_type_string"):
+        meta["flight_label"] = cfd["flight_type_string"]  # e.g. "טיסה ישירה"
+
+    return meta or None
 
 
 def _luggage_tier(bc: str) -> str | None:

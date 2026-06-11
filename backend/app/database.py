@@ -46,6 +46,9 @@ def get_db() -> Generator[Session, None, None]:
 # Alembic.
 _NUM = {"sqlite": "NUMERIC(12,2)", "postgresql": "NUMERIC(12,2)"}
 _ADDED_COLUMNS = {
+    "users": {
+        "password_hash": {"sqlite": "VARCHAR(255)", "postgresql": "VARCHAR(255)"},
+    },
     "tracked_items": {
         "hotel_name": {"sqlite": "VARCHAR(255)", "postgresql": "VARCHAR(255)"},
         "hotel_url": {"sqlite": "VARCHAR(500)", "postgresql": "VARCHAR(500)"},

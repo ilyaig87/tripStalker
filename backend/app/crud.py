@@ -20,6 +20,18 @@ def get_or_create_user(db: Session, email: str) -> User:
     return user
 
 
+def get_user_by_email(db: Session, email: str) -> User | None:
+    return db.scalar(select(User).where(User.email == email))
+
+
+def create_user(db: Session, email: str, password_hash: str) -> User:
+    user = User(email=email, password_hash=password_hash)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def create_track(
     db: Session,
     user: User,
@@ -70,6 +82,18 @@ def create_track(
     return item
 
 
+def get_tracks_for_user(db: Session, user_id: int) -> list[TrackedItem]:
+    items = list(
+        db.scalars(
+            select(TrackedItem)
+            .where(TrackedItem.user_id == user_id)
+            .order_by(TrackedItem.created_at.desc())
+        )
+    )
+    _attach_price_stats(db, items)
+    return items
+
+
 def get_tracks_by_email(db: Session, email: str) -> list[TrackedItem]:
     items = list(
         db.scalars(
@@ -79,7 +103,12 @@ def get_tracks_by_email(db: Session, email: str) -> list[TrackedItem]:
             .order_by(TrackedItem.created_at.desc())
         )
     )
-    # Attach the all-time low/high from price_history for the "good deal?" badge.
+    _attach_price_stats(db, items)
+    return items
+
+
+def _attach_price_stats(db: Session, items: list[TrackedItem]) -> None:
+    """Attach the all-time low/high from price_history for the "good deal?" badge."""
     if items:
         rows = db.execute(
             select(
@@ -93,7 +122,6 @@ def get_tracks_by_email(db: Session, email: str) -> list[TrackedItem]:
         stats = {tid: (lo, hi) for tid, lo, hi in rows}
         for item in items:
             item.price_low, item.price_high = stats.get(item.id, (None, None))
-    return items
 
 
 def get_track(db: Session, track_id: int) -> TrackedItem | None:
@@ -104,23 +132,23 @@ def get_track(db: Session, track_id: int) -> TrackedItem | None:
     )
 
 
-def delete_track(db: Session, track_id: int) -> bool:
+def delete_track(db: Session, track_id: int, user_id: int) -> bool:
     item = db.get(TrackedItem, track_id)
-    if item is None:
+    if item is None or item.user_id != user_id:
         return False
     db.delete(item)
     db.commit()
     return True
 
 
-def reset_baseline(db: Session, track_id: int) -> TrackedItem | None:
+def reset_baseline(db: Session, track_id: int, user_id: int) -> TrackedItem | None:
     """Re-baseline a track: make the current price the new reference and re-arm it.
 
     Useful after a pricing correction (e.g. luggage) so a non-real change doesn't
     keep showing as a drop/increase.
     """
     item = db.get(TrackedItem, track_id)
-    if item is None:
+    if item is None or item.user_id != user_id:
         return None
     if item.current_price is not None:
         item.initial_price = item.current_price

@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # --- CORS ---
     frontend_origin: str = "http://localhost:5173"
 
+    # --- Auth (email + password → JWT) ---
+    # CHANGE THIS in production. Anyone with the secret can forge login tokens.
+    jwt_secret: str = "dev-insecure-change-me"
+    jwt_expire_minutes: int = 60 * 24 * 14  # 14 days
+
     # --- Cron auth (Vercel Cron sends "Authorization: Bearer <CRON_SECRET>") ---
     cron_secret: str = ""
 

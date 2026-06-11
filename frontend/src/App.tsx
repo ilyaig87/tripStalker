@@ -1,12 +1,19 @@
 import { useEffect, useState } from "react";
 import {
+  type AuthUser,
+  clearToken,
   createTrack,
   deleteTrack,
+  getToken,
   getTrack,
   listTracks,
+  login,
+  me,
   type PriceHistoryPoint,
   refreshTracks,
+  register,
   resetTrack,
+  setToken,
   type Track,
 } from "./api";
 
@@ -30,9 +37,9 @@ const PROVIDER_LABEL: Record<string, string> = {
 };
 
 const THEMES = [
-  { id: "amber", label: "ענבר", swatch: "#f5b13d" },
-  { id: "solari", label: "סולארי", swatch: "#34e08a" },
-  { id: "tokyo", label: "טוקיו", swatch: "#4fd6ff" },
+  { id: "riviera", label: "ריביירה", swatch: "#0f766e" },
+  { id: "santorini", label: "סנטוריני", swatch: "#2563a6" },
+  { id: "sahara", label: "סהרה", swatch: "#c2632f" },
 ] as const;
 
 function sym(currency: string) {
@@ -60,15 +67,34 @@ function nights(a: string | null, b: string | null) {
   return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);
 }
 
-// "נבדק לפני 3 ש׳" — relative time of the last price check
+// The backend sends NAIVE UTC timestamps (no "Z"/offset). Parse them as UTC so
+// the browser converts to the user's local time instead of assuming local.
+function parseUTC(iso: string): Date {
+  const hasTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
+  return new Date(hasTz ? iso : iso + "Z");
+}
+function hhmm(d: Date): string {
+  return d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+}
+function ddmm(d: Date): string {
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// Last price check: "זה עתה" / "לפני N דקות" for the last hour; otherwise
+// "היום/אתמול בשעה HH:MM", and for older — the date itself (dd/mm) + time.
 function lastChecked(iso: string | null) {
   if (!iso) return "טרם נבדק";
-  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (min < 1) return "נבדק כעת";
-  if (min < 60) return `נבדק לפני ${min} ד׳`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `נבדק לפני ${hr} ש׳`;
-  return `נבדק לפני ${Math.round(hr / 24)} י׳`;
+  const d = parseUTC(iso);
+  const sec = Math.round((Date.now() - d.getTime()) / 1000);
+  if (sec < 60) return "נבדק זה עתה";
+  const min = Math.round(sec / 60);
+  if (min < 60) return `נבדק לפני ${min} ${min === 1 ? "דקה" : "דקות"}`;
+  const now = new Date();
+  const yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  if (d.toDateString() === now.toDateString()) return `נבדק היום בשעה ${hhmm(d)}`;
+  if (d.toDateString() === yest.toDateString()) return `נבדק אתמול בשעה ${hhmm(d)}`;
+  return `נבדק ב-${ddmm(d)} בשעה ${hhmm(d)}`;
 }
 
 // Keep only the points where the price changed (+ the first). For each change,
@@ -123,6 +149,34 @@ function packageFlight(jsonStr: string | null): { out: PkgLeg | null; back: PkgL
   }
 }
 
+type HotelMeta = {
+  stars?: number;
+  review_score?: number;
+  review_count?: number;
+  room?: string;
+  board?: string;
+  refundable_until?: string;
+  free_cancellation?: boolean;
+  tags?: string[];
+  maps_url?: string;
+  highlight?: string;
+  photo?: string;
+  photos?: string[];
+  flight_kind?: string;
+  airline?: string;
+  flight_label?: string;
+};
+
+// Parse the rich hotel metadata (HolidayFinder) stored as JSON.
+function hotelMeta(jsonStr: string | null): HotelMeta | null {
+  if (!jsonStr) return null;
+  try {
+    return JSON.parse(jsonStr) as HotelMeta;
+  } catch {
+    return null;
+  }
+}
+
 type Weather = { tmax: number; tmin: number };
 
 // Typical weather at a destination for the travel month — open-meteo, keyless.
@@ -162,6 +216,50 @@ function dealBadge(t: Track): { cls: string; label: string } | null {
   if (pct <= 0.15) return { cls: "deal--great", label: "🟢 מחיר מעולה — קרוב לשפל" };
   if (pct >= 0.85) return { cls: "deal--high", label: "🔴 יקר — קרוב לשיא" };
   return { cls: "deal--mid", label: "🟡 מחיר ממוצע" };
+}
+
+// Browsable hotel photo gallery for the postcard header.
+function PhotoCarousel({ photos, city, stars }: { photos: string[]; city?: string | null; stars?: number }) {
+  const [i, setI] = useState(0);
+  const n = photos.length;
+  const go = (d: number) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setI((p) => (p + d + n) % n);
+  };
+  return (
+    <div className="ticket-photo" style={{ backgroundImage: `url(${photos[i]})` }}>
+      {stars ? (
+        <span className="ticket-photo-stars" aria-label={`${stars} כוכבים`}>
+          {"★".repeat(stars)}
+        </span>
+      ) : null}
+      {city && <span className="ticket-photo-city">{city}</span>}
+      {n > 1 && (
+        <>
+          <button className="photo-nav photo-nav--prev" onClick={go(-1)} aria-label="תמונה קודמת">
+            ‹
+          </button>
+          <button className="photo-nav photo-nav--next" onClick={go(1)} aria-label="תמונה הבאה">
+            ›
+          </button>
+          <div className="photo-dots" aria-hidden>
+            {photos.map((_, k) => (
+              <span
+                key={k}
+                className={`photo-dot${k === i ? " is-on" : ""}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setI(k);
+                }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function Sparkline({ points }: { points: PriceHistoryPoint[] }) {
@@ -264,14 +362,164 @@ function PlaneMark() {
   );
 }
 
-export default function App() {
+// Login / register gate, shown until the user has a valid token.
+function AuthScreen({
+  theme,
+  onTheme,
+  onAuthed,
+}: {
+  theme: string;
+  onTheme: (id: string) => void;
+  onAuthed: (token: string, user: AuthUser) => void;
+}) {
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setBusy(true);
+    try {
+      const res = mode === "login" ? await login(email, password) : await register(email, password);
+      onAuthed(res.access_token, res.user);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div dir="rtl" className="wrap font-body auth-wrap">
+      <header>
+        <div className="header-top">
+          <div className="brand">
+            <span className="brand-mark">
+              <PlaneMark />
+            </span>
+            <h1 className="brand-title font-display">
+              Trip<span className="brand-accent">Stalker</span>
+            </h1>
+          </div>
+          <div className="theme-picker" role="group" aria-label="ערכת עיצוב">
+            {THEMES.map((th) => (
+              <button
+                key={th.id}
+                type="button"
+                className="swatch"
+                title={th.label}
+                aria-pressed={theme === th.id}
+                style={{ background: th.swatch }}
+                onClick={() => onTheme(th.id)}
+              />
+            ))}
+          </div>
+        </div>
+        <p className="tagline">לוח היציאות שלך — התחברו כדי לעקוב אחרי מחירי טיסות ומלונות.</p>
+      </header>
+
+      <form onSubmit={submit} className="panel auth-card">
+        <div className="auth-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "login"}
+            className={`auth-tab${mode === "login" ? " is-active" : ""}`}
+            onClick={() => {
+              setMode("login");
+              setErr(null);
+            }}
+          >
+            כניסה
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "register"}
+            className={`auth-tab${mode === "register" ? " is-active" : ""}`}
+            onClick={() => {
+              setMode("register");
+              setErr(null);
+            }}
+          >
+            הרשמה
+          </button>
+        </div>
+
+        <label className="field">
+          <span className="field-label">אימייל</span>
+          <input
+            className="input"
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </label>
+        <label className="field" style={{ marginTop: "0.9rem" }}>
+          <span className="field-label">סיסמה</span>
+          <input
+            className="input"
+            type="password"
+            required
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            minLength={mode === "register" ? 8 : undefined}
+            placeholder={mode === "register" ? "לפחות 8 תווים" : "••••••••"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </label>
+
+        {err && (
+          <div className="alert" style={{ marginTop: "0.95rem" }}>
+            {err}
+          </div>
+        )}
+
+        <button
+          className="btn-primary"
+          type="submit"
+          disabled={busy}
+          style={{ width: "100%", marginTop: "1.15rem" }}
+        >
+          {busy ? "רגע…" : mode === "login" ? "כניסה ←" : "צרו חשבון ←"}
+        </button>
+
+        <p className="auth-switch">
+          {mode === "login" ? "אין לכם חשבון עדיין?" : "כבר רשומים?"}{" "}
+          <button
+            type="button"
+            className="auth-link"
+            onClick={() => {
+              setMode(mode === "login" ? "register" : "login");
+              setErr(null);
+            }}
+          >
+            {mode === "login" ? "להרשמה" : "לכניסה"}
+          </button>
+        </p>
+      </form>
+    </div>
+  );
+}
+
+export default function App() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [url, setUrl] = useState("");
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [theme, setTheme] = useState<string>(() => localStorage.getItem("ts_theme") || "amber");
+  const [theme, setTheme] = useState<string>(() => {
+    const saved = localStorage.getItem("ts_theme");
+    return saved && ["riviera", "santorini", "sahara"].includes(saved) ? saved : "riviera";
+  });
   const [usdIls, setUsdIls] = useState<number | null>(null);
   const [openHistory, setOpenHistory] = useState<Set<number>>(new Set());
   const [history, setHistory] = useState<Record<number, PriceHistoryPoint[]>>({});
@@ -303,21 +551,32 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  async function refresh(forEmail: string) {
-    if (!forEmail) return;
+  async function refresh() {
     try {
-      setTracks(await listTracks(forEmail));
+      setTracks(await listTracks());
     } catch (e) {
       setError((e as Error).message);
     }
   }
 
+  // On load: if we have a saved token, validate it (fetch the user) then load
+  // their tracks. A bad/expired token is cleared so the login screen shows.
   useEffect(() => {
-    const saved = localStorage.getItem("ts_email");
-    if (saved) {
-      setEmail(saved);
-      refresh(saved);
+    if (!getToken()) {
+      setAuthReady(true);
+      return;
     }
+    me()
+      .then((u) => {
+        setUser(u);
+        return refresh();
+      })
+      .catch(() => {
+        clearToken();
+        setUser(null);
+      })
+      .finally(() => setAuthReady(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
@@ -325,10 +584,9 @@ export default function App() {
     setError(null);
     setLoading(true);
     try {
-      await createTrack(email, url);
-      localStorage.setItem("ts_email", email);
+      await createTrack(url);
       setUrl("");
-      await refresh(email);
+      await refresh();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -338,12 +596,18 @@ export default function App() {
 
   async function onDelete(id: number) {
     await deleteTrack(id);
-    await refresh(email);
+    await refresh();
   }
 
   async function onReset(id: number) {
     await resetTrack(id); // make the current price the new baseline
-    await refresh(email);
+    await refresh();
+  }
+
+  function onLogout() {
+    clearToken();
+    setUser(null);
+    setTracks([]);
   }
 
   async function toggleHistory(id: number) {
@@ -363,11 +627,10 @@ export default function App() {
   }
 
   async function onCheckNow() {
-    if (!email) return;
     setError(null);
     setChecking(true);
     try {
-      setTracks(await refreshTracks(email)); // re-fetches live prices for all my tracks
+      setTracks(await refreshTracks()); // re-fetches live prices for all my tracks
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -379,6 +642,25 @@ export default function App() {
     const d = priceDelta(t.initial_price, t.current_price);
     return d?.dir === "down";
   }).length;
+
+  // While we validate a saved token, render nothing (avoids a login-screen flash).
+  if (!authReady) {
+    return <div dir="rtl" className="wrap" aria-busy="true" />;
+  }
+  // Not signed in → show the login / register gate.
+  if (!user) {
+    return (
+      <AuthScreen
+        theme={theme}
+        onTheme={setTheme}
+        onAuthed={(token, u) => {
+          setToken(token);
+          setUser(u);
+          refresh();
+        }}
+      />
+    );
+  }
 
   return (
     <div dir="rtl" className="wrap font-body">
@@ -393,7 +675,16 @@ export default function App() {
               Trip<span className="brand-accent">Stalker</span>
             </h1>
           </div>
-          <div className="theme-picker" role="group" aria-label="ערכת עיצוב">
+          <div className="header-actions">
+            <div className="account">
+              <span className="account-email" title={user.email}>
+                {user.email}
+              </span>
+              <button type="button" className="logout-btn" onClick={onLogout}>
+                יציאה
+              </button>
+            </div>
+            <div className="theme-picker" role="group" aria-label="ערכת עיצוב">
             {THEMES.map((th) => (
               <button
                 key={th.id}
@@ -405,6 +696,7 @@ export default function App() {
                 onClick={() => setTheme(th.id)}
               />
             ))}
+            </div>
           </div>
         </div>
         <p className="tagline">הדביקו קישור למלון או חבילת נופש — ואנחנו נשגיח על המחיר במקומכם.</p>
@@ -431,21 +723,10 @@ export default function App() {
           style={{
             display: "grid",
             gap: "0.85rem",
-            gridTemplateColumns: "minmax(0,1fr) minmax(0,1.7fr) auto",
+            gridTemplateColumns: "minmax(0,1fr) auto",
             alignItems: "end",
           }}
         >
-          <label className="field">
-            <span className="field-label">אימייל</span>
-            <input
-              className="input"
-              type="email"
-              required
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
           <label className="field">
             <span className="field-label">קישור להצעה</span>
             <input
@@ -493,6 +774,15 @@ export default function App() {
             const st = STATUS[t.status] ?? STATUS.Active;
             const gone = !t.available;
             const deal = gone ? null : dealBadge(t);
+            const meta = hotelMeta(t.hotel_meta);
+            const photoList =
+              meta?.photos?.length
+                ? meta.photos
+                : meta?.photo
+                  ? [meta.photo]
+                  : t.destination_photo_url
+                    ? [t.destination_photo_url]
+                    : [];
 
             return (
               <article
@@ -503,10 +793,8 @@ export default function App() {
                   animationDelay: `${idx * 70}ms`,
                 }}
               >
-                {t.destination_photo_url && (
-                  <div className="ticket-photo" style={{ backgroundImage: `url(${t.destination_photo_url})` }}>
-                    {t.destination_city && <span className="ticket-photo-city">{t.destination_city}</span>}
-                  </div>
+                {photoList.length > 0 && (
+                  <PhotoCarousel photos={photoList} city={t.destination_city} stars={meta?.stars} />
                 )}
                 <div className="ticket-head">
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
@@ -539,6 +827,20 @@ export default function App() {
                   {t.hotel_name || t.destination || PROVIDER_LABEL[t.provider] || "מעקב"}
                 </h3>
 
+                {meta && (meta.review_score != null || meta.room || meta.board) && (
+                  <div className="hotel-meta">
+                    {meta.review_score != null && (
+                      <span className="review-pill">
+                        {meta.review_score} ★
+                        {meta.review_count ? <small> · {meta.review_count.toLocaleString()} ביקורות</small> : null}
+                      </span>
+                    )}
+                    {meta.room && <span className="meta-soft">🛏️ {meta.room}</span>}
+                    {meta.board && <span className="meta-soft">🍽️ {meta.board}</span>}
+                  </div>
+                )}
+                {meta?.highlight && <p className="hotel-highlight">{meta.highlight}</p>}
+
                 <div className="stats">
                   {t.destination && <Stat icon="📍" label="יציאה" value={t.destination} />}
                   <Stat
@@ -558,6 +860,31 @@ export default function App() {
                     ) : null;
                   })()}
                 </div>
+
+                {meta?.tags?.length ? (
+                  <div className="tags">
+                    {meta.tags.map((tg, i) => (
+                      <span className="tag" key={i}>
+                        {tg}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                {meta && (meta.refundable_until || meta.flight_label) && (
+                  <div className="meta-row">
+                    {meta.refundable_until && (
+                      <span className="meta-chip meta-chip--ok">↩️ ביטול חינם עד {dm(meta.refundable_until)}</span>
+                    )}
+                    {meta.flight_label && (
+                      <span className="meta-chip">
+                        ✈️ {meta.flight_label}
+                        {meta.airline ? ` · ${meta.airline}` : ""}
+                        {meta.flight_kind === "charter" ? " · טיסת שכר" : ""}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {gone && (
                   <div className="note-gone">
@@ -617,6 +944,12 @@ export default function App() {
                   </div>
 
                   <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    {meta?.maps_url && (
+                      <a className="offer-link offer-link--alt" href={meta.maps_url} target="_blank" rel="noreferrer">
+                        📍 במפה
+                        <span aria-hidden>↗</span>
+                      </a>
+                    )}
                     {t.hotel_url && (
                       <a className="offer-link offer-link--alt" href={t.hotel_url} target="_blank" rel="noreferrer">
                         🏨 מחיר באתר המלון
@@ -696,12 +1029,10 @@ export default function App() {
                               <div className="history-row" key={i}>
                                 <div className="history-main">
                                   <span className="history-date">
-                                    {new Date(e.date).toLocaleString("he-IL", {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })}
+                                    {(() => {
+                                      const d = parseUTC(e.date);
+                                      return `${ddmm(d)} · ${hhmm(d)}`;
+                                    })()}
                                   </span>
                                   <span className="history-price tnum">{money(String(e.price), t.currency)}</span>
                                   {e.delta !== null && e.delta !== 0 && (
