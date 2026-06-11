@@ -66,6 +66,9 @@ _ADDED_COLUMNS = {
         "hotel_portion": _NUM,
         "flight_portion": _NUM,
         "flight_details": {"sqlite": "VARCHAR(600)", "postgresql": "VARCHAR(600)"},
+        "hotel_meta": {"sqlite": "TEXT", "postgresql": "TEXT"},
+        "hotellook_id": {"sqlite": "VARCHAR(40)", "postgresql": "VARCHAR(40)"},
+        "compare_offers": {"sqlite": "TEXT", "postgresql": "TEXT"},
     },
     "price_history": {
         "hotel_portion": _NUM,
