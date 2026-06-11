@@ -120,20 +120,29 @@ const AIRLINES: Record<string, string> = {
   LH: "Lufthansa",
 };
 
-// Format the stored flight JSON into "אל על · ישיר · 1ש׳ 25ד׳".
-function flightInfo(jsonStr: string | null): string | null {
+type FlightLeg = { date: string; dep: string; arr: string; direct: boolean };
+type FlightInfo = { airline: string | null; out: FlightLeg | null; back: FlightLeg | null };
+
+// Build one leg from an ISO like "2026-09-14T21:15:00+03:00" using the wall-clock
+// time as given (no browser-timezone conversion); arrival = departure + duration.
+function leg(iso: string | undefined, durMin: number | undefined, transfers: number): FlightLeg | null {
+  if (!iso || iso.length < 16) return null;
+  const date = `${iso.slice(8, 10)}.${iso.slice(5, 7)}`;
+  const depMin = +iso.slice(11, 13) * 60 + +iso.slice(14, 16);
+  const arrMin = (depMin + (durMin || 0)) % 1440;
+  const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  return { date, dep: fmt(depMin), arr: fmt(arrMin), direct: transfers === 0 };
+}
+
+function flightInfo(jsonStr: string | null): FlightInfo | null {
   if (!jsonStr) return null;
   try {
     const d = JSON.parse(jsonStr);
-    const parts: string[] = [];
-    if (d.airline) parts.push(AIRLINES[d.airline] || d.airline);
-    if (d.transfers != null) parts.push(d.transfers === 0 ? "ישיר" : `${d.transfers} עצירות`);
-    if (d.duration) {
-      const h = Math.floor(d.duration / 60);
-      const m = d.duration % 60;
-      parts.push(`${h}ש׳${m ? ` ${m}ד׳` : ""}`);
-    }
-    return parts.join(" · ") || null;
+    return {
+      airline: d.airline ? AIRLINES[d.airline] || d.airline : null,
+      out: leg(d.departure_at, d.duration_to, d.transfers ?? 0),
+      back: leg(d.return_at, d.duration_back, d.return_transfers ?? d.transfers ?? 0),
+    };
   } catch {
     return null;
   }
@@ -605,7 +614,27 @@ export default function App() {
                       <b>מ-{money(t.alt_price, t.currency)} לאדם</b>
                       <span aria-hidden> ↗</span>
                     </div>
-                    {flightInfo(t.alt_details) && <div className="alt-flight">✈️ {flightInfo(t.alt_details)}</div>}
+                    {(() => {
+                      const f = flightInfo(t.alt_details);
+                      if (!f) return null;
+                      return (
+                        <div className="alt-flight">
+                          {f.airline && <span className="alt-airline">✈️ {f.airline}</span>}
+                          {f.out && (
+                            <span>
+                              🛫 הלוך {f.out.date} · {f.out.dep}→{f.out.arr}
+                              {f.out.direct ? " · ישיר" : ""}
+                            </span>
+                          )}
+                          {f.back && (
+                            <span>
+                              🛬 חזור {f.back.date} · {f.back.dep}→{f.back.arr}
+                              {f.back.direct ? " · ישיר" : ""}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </a>
                 )}
                 {t.alt_price && t.provider !== "travelist" && (

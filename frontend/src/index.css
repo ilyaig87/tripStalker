@@ -742,10 +742,16 @@ body::before {
   font-weight: 800;
 }
 .alt-flight {
-  margin-top: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: 0.4rem;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--teal-deep);
+}
+.alt-airline {
+  font-weight: 800;
 }
 
 .empty {

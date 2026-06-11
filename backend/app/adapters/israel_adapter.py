@@ -172,8 +172,11 @@ class TravelistAdapter(BaseProviderAdapter):
             "details": {
                 "airline": best.get("airline"),
                 "transfers": best.get("transfers"),
+                "return_transfers": best.get("return_transfers"),
                 "departure_at": best.get("departure_at"),
-                "duration": best.get("duration"),
+                "return_at": best.get("return_at"),
+                "duration_to": best.get("duration_to"),
+                "duration_back": best.get("duration_back"),
             },
         }
 
