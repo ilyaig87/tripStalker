@@ -14,6 +14,8 @@ export interface Track {
   hotel_name: string | null;
   initial_price: string | null;
   current_price: string | null;
+  price_low: string | null;
+  price_high: string | null;
   currency: string;
   status: TrackStatus;
   available: boolean;

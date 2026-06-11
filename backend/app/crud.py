@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import PriceHistory, TrackedItem, TrackStatus, User
@@ -65,7 +65,7 @@ def create_track(
 
 
 def get_tracks_by_email(db: Session, email: str) -> list[TrackedItem]:
-    return list(
+    items = list(
         db.scalars(
             select(TrackedItem)
             .join(User)
@@ -73,6 +73,21 @@ def get_tracks_by_email(db: Session, email: str) -> list[TrackedItem]:
             .order_by(TrackedItem.created_at.desc())
         )
     )
+    # Attach the all-time low/high from price_history for the "good deal?" badge.
+    if items:
+        rows = db.execute(
+            select(
+                PriceHistory.tracked_item_id,
+                func.min(PriceHistory.price),
+                func.max(PriceHistory.price),
+            )
+            .where(PriceHistory.tracked_item_id.in_([i.id for i in items]))
+            .group_by(PriceHistory.tracked_item_id)
+        ).all()
+        stats = {tid: (lo, hi) for tid, lo, hi in rows}
+        for item in items:
+            item.price_low, item.price_high = stats.get(item.id, (None, None))
+    return items
 
 
 def get_track(db: Session, track_id: int) -> TrackedItem | None:

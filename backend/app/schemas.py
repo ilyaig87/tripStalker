@@ -36,6 +36,8 @@ class TrackOut(BaseModel):
     hotel_name: str | None
     initial_price: Decimal | None
     current_price: Decimal | None
+    price_low: Decimal | None = None   # lowest price ever recorded
+    price_high: Decimal | None = None  # highest price ever recorded
     currency: str
     status: TrackStatus
     available: bool = True

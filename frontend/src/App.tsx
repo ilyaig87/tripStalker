@@ -105,6 +105,19 @@ function signed(n: number, currency: string) {
   return `${s}${sym(currency)}${Math.abs(Math.round(n)).toLocaleString()}`;
 }
 
+// "Good deal?" — position of the current price within its all-time low–high range.
+function dealBadge(t: Track): { cls: string; label: string } | null {
+  if (t.price_low == null || t.price_high == null || t.current_price == null) return null;
+  const low = Number(t.price_low);
+  const high = Number(t.price_high);
+  const cur = Number(t.current_price);
+  if (high - low < Math.max(1, low * 0.005)) return null; // not enough range yet
+  const pct = (cur - low) / (high - low);
+  if (pct <= 0.15) return { cls: "deal--great", label: "🟢 מחיר מעולה — קרוב לשפל" };
+  if (pct >= 0.85) return { cls: "deal--high", label: "🔴 יקר — קרוב לשיא" };
+  return { cls: "deal--mid", label: "🟡 מחיר ממוצע" };
+}
+
 function Sparkline({ points }: { points: PriceHistoryPoint[] }) {
   const vals = points.map((p) => Number(p.price));
   if (vals.length < 2) return null;
@@ -402,6 +415,7 @@ export default function App() {
             const delta = priceDelta(t.initial_price, t.current_price);
             const st = STATUS[t.status] ?? STATUS.Active;
             const gone = !t.available;
+            const deal = gone ? null : dealBadge(t);
 
             return (
               <article
@@ -420,6 +434,7 @@ export default function App() {
                     ) : (
                       <span className={`status ${st.cls}`}>{st.label}</span>
                     )}
+                    {deal && <span className={`deal ${deal.cls}`}>{deal.label}</span>}
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                     <button className="history-btn" onClick={() => toggleHistory(t.id)} title="היסטוריית מחירים">
