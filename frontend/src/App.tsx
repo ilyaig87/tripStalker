@@ -30,9 +30,9 @@ const PROVIDER_LABEL: Record<string, string> = {
 };
 
 const THEMES = [
-  { id: "beach", label: "חוף", swatch: "#15605a" },
-  { id: "midnight", label: "חצות", swatch: "#e3b657" },
-  { id: "sunset", label: "שקיעה", swatch: "#d2603a" },
+  { id: "amber", label: "ענבר", swatch: "#f5b13d" },
+  { id: "solari", label: "סולארי", swatch: "#34e08a" },
+  { id: "tokyo", label: "טוקיו", swatch: "#4fd6ff" },
 ] as const;
 
 function sym(currency: string) {
@@ -78,6 +78,8 @@ function changeLog(points: PriceHistoryPoint[]) {
     date: string;
     price: number;
     delta: number | null;
+    hotel: number | null;
+    flight: number | null;
     hotelDelta: number | null;
     flightDelta: number | null;
   }[] = [];
@@ -91,6 +93,8 @@ function changeLog(points: PriceHistoryPoint[]) {
         date: p.checked_at,
         price: v,
         delta: prev === null ? null : v - Number(prev.price),
+        hotel: p.hotel_portion != null ? Number(p.hotel_portion) : null,
+        flight: p.flight_portion != null ? Number(p.flight_portion) : null,
         hotelDelta: prev ? portionDelta(p.hotel_portion, prev.hotel_portion) : null,
         flightDelta: prev ? portionDelta(p.flight_portion, prev.flight_portion) : null,
       });
@@ -215,6 +219,23 @@ function priceDelta(initial: string | null, current: string | null): Delta | nul
   return { dir: "flat", amount: "0", pct: "0" };
 }
 
+// The signature split-flap price: each character on its own mechanical tile.
+function FlapPrice({ text }: { text: string }) {
+  return (
+    <span className="flap-row" aria-label={text}>
+      {Array.from(text).map((ch, i) =>
+        ch === " " ? (
+          <span key={i} className="flap-gap" aria-hidden />
+        ) : (
+          <span key={i} className="flap-tile" style={{ animationDelay: `${i * 45}ms` }} aria-hidden>
+            {ch}
+          </span>
+        )
+      )}
+    </span>
+  );
+}
+
 function Stat({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
     <div className="stat">
@@ -250,7 +271,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [theme, setTheme] = useState<string>(() => localStorage.getItem("ts_theme") || "beach");
+  const [theme, setTheme] = useState<string>(() => localStorage.getItem("ts_theme") || "amber");
   const [usdIls, setUsdIls] = useState<number | null>(null);
   const [openHistory, setOpenHistory] = useState<Set<number>>(new Set());
   const [history, setHistory] = useState<Record<number, PriceHistoryPoint[]>>({});
@@ -549,7 +570,7 @@ export default function App() {
                   <div>
                     <div className="price-now">
                       <span className="price-cur tnum">
-                        {money(t.current_price, t.currency)}
+                        <FlapPrice text={money(t.current_price, t.currency)} />
                         <small>סה״כ</small>
                       </span>
                       {!gone && delta && delta.dir !== "flat" && (
@@ -690,6 +711,12 @@ export default function App() {
                                     </span>
                                   )}
                                 </div>
+                                {(e.hotel != null || e.flight != null) && (
+                                  <div className="history-parts tnum">
+                                    {e.hotel != null && <span>🏨 {money(String(e.hotel), t.currency)}</span>}
+                                    {e.flight != null && <span>✈️ {money(String(e.flight), t.currency)}</span>}
+                                  </div>
+                                )}
                                 {(!!e.hotelDelta || !!e.flightDelta) && (
                                   <div className="history-why tnum">
                                     {!!e.hotelDelta && <span>🏨 {signed(e.hotelDelta, t.currency)}</span>}
