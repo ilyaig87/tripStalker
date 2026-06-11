@@ -115,6 +115,11 @@ class HolidayFinderAdapter(BaseProviderAdapter):
         per_pax = rate_include.get("total_price_per_pax")
         hotel = (rate.get("hotel") or {}).get("name") or f"HolidayFinder offer #{parsed.target_hotel_id_or_name}"
         dest_city = ((data.get("data") or {}).get("destination_data") or {}).get("name_en")
+
+        cfd = rate.get("cheapest_flight_data") or {}
+        legs = {"out": _hf_flight_leg(cfd), "back": _hf_flight_leg(cfd.get("default_inbound") or {})}
+        flight_details = json.dumps(legs) if (legs["out"] or legs["back"]) else None
+
         return PriceResult(
             price=Decimal(str(final)).quantize(Decimal("1.00")),
             currency="USD",  # the site quotes packages in USD
@@ -122,6 +127,7 @@ class HolidayFinderAdapter(BaseProviderAdapter):
             destination_city=dest_city,
             hotel_portion=hotel_portion,
             flight_portion=flight_portion,
+            flight_details=flight_details,
             raw={
                 "base_total_price": total,
                 "luggage_tier": luggage_tier,
@@ -207,6 +213,21 @@ class HolidayFinderAdapter(BaseProviderAdapter):
             return []
         dates = next(iter(hotels.values())).get("dates") or []
         return [e for e in dates if isinstance(e.get("price"), (int, float)) and e["price"] > 0]
+
+
+def _hf_flight_leg(node: dict) -> dict | None:
+    """Pull one flight leg (date, airline, takeoff/landing hour, stops) from a
+    HolidayFinder cheapest_flight_data node."""
+    escales = node.get("escales") or []
+    if not escales:
+        return None
+    return {
+        "date": node.get("takeoff_date_format"),
+        "airline": (escales[0] or {}).get("company_name"),
+        "dep": (escales[0] or {}).get("takeoff_hour"),
+        "arr": (escales[-1] or {}).get("landing_hour"),
+        "stops": node.get("nb_escales") or 0,
+    }
 
 
 def _luggage_tier(bc: str) -> str | None:

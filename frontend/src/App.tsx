@@ -148,6 +148,20 @@ function flightInfo(jsonStr: string | null): FlightInfo | null {
   }
 }
 
+type PkgLeg = { date?: string; airline?: string; dep?: string; arr?: string; stops?: number };
+
+// Parse the package flight legs (HolidayFinder) stored as JSON.
+function packageFlight(jsonStr: string | null): { out: PkgLeg | null; back: PkgLeg | null } | null {
+  if (!jsonStr) return null;
+  try {
+    const d = JSON.parse(jsonStr);
+    if (!d.out && !d.back) return null;
+    return { out: d.out || null, back: d.back || null };
+  } catch {
+    return null;
+  }
+}
+
 type Weather = { tmax: number; tmin: number };
 
 // Typical weather at a destination for the travel month — open-meteo, keyless.
@@ -603,6 +617,24 @@ export default function App() {
                         🏨 מלון {money(t.hotel_portion, t.currency)} · ✈️ טיסה {money(t.flight_portion, t.currency)}
                       </div>
                     )}
+                    {(() => {
+                      const pf = packageFlight(t.flight_details);
+                      if (!pf) return null;
+                      const line = (l: PkgLeg | null, icon: string, label: string) =>
+                        l && l.dep ? (
+                          <span>
+                            {icon} {label} {l.date} · {l.airline ? `${l.airline} · ` : ""}
+                            {l.dep}→{l.arr}
+                            {l.stops === 0 ? " · ישיר" : l.stops ? ` · ${l.stops} עצירות` : ""}
+                          </span>
+                        ) : null;
+                      return (
+                        <div className="alt-flight">
+                          {line(pf.out, "🛫", "הלוך")}
+                          {line(pf.back, "🛬", "חזור")}
+                        </div>
+                      );
+                    })()}
                     <div className="checked-at">🕐 {lastChecked(t.last_checked_at)}</div>
                   </div>
 

@@ -70,6 +70,7 @@ class TrackedItem(Base):
     # Package breakdown (hotel vs flight), when the provider exposes it
     hotel_portion: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     flight_portion: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    flight_details: Mapped[str | None] = mapped_column(String(600))  # JSON: package flight legs
 
     status: Mapped[TrackStatus] = mapped_column(default=TrackStatus.ACTIVE, index=True)
 

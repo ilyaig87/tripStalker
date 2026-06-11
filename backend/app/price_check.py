@@ -67,6 +67,7 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
     # Refresh the package breakdown (hotel vs flight) if the adapter provides it.
     item.hotel_portion = result.hotel_portion
     item.flight_portion = result.flight_portion
+    item.flight_details = result.flight_details
     if result.destination_city:
         item.destination_city = result.destination_city
     if item.destination_city and not item.destination_photo_url:

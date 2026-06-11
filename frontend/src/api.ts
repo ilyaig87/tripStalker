@@ -30,6 +30,7 @@ export interface Track {
   alt_details: string | null;
   hotel_portion: string | null;
   flight_portion: string | null;
+  flight_details: string | null;
   created_at: string;
 }
 

@@ -52,6 +52,7 @@ class TrackOut(BaseModel):
     alt_details: str | None = None
     hotel_portion: Decimal | None = None
     flight_portion: Decimal | None = None
+    flight_details: str | None = None
     created_at: datetime
 
 

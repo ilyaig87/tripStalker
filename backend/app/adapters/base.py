@@ -21,6 +21,7 @@ class PriceResult:
     destination_city: str | None = None    # resolved destination city (for weather etc.)
     hotel_portion: Decimal | None = None   # package breakdown: hotel part (if known)
     flight_portion: Decimal | None = None  # package breakdown: flight part (if known)
+    flight_details: str | None = None      # JSON: package flight legs (times, airline)
     raw: dict | None = None            # original provider payload, for debugging
 
 

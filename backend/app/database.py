@@ -61,6 +61,7 @@ _ADDED_COLUMNS = {
         "alt_details": {"sqlite": "VARCHAR(500)", "postgresql": "VARCHAR(500)"},
         "hotel_portion": _NUM,
         "flight_portion": _NUM,
+        "flight_details": {"sqlite": "VARCHAR(600)", "postgresql": "VARCHAR(600)"},
     },
     "price_history": {
         "hotel_portion": _NUM,
