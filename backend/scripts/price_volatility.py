@@ -39,11 +39,40 @@ CSV_PATH = Path(__file__).resolve().parent / "price_volatility.csv"
 _FIELDS = ["ts_utc", "total", "hotel_portion", "flight_portion", "currency", "url"]
 
 
-async def sample(url: str) -> None:
+def _last_total() -> float | None:
+    """The most recent total already in the CSV (before this run appends)."""
+    if not CSV_PATH.exists():
+        return None
+    rows = [r for r in csv.DictReader(CSV_PATH.open()) if r.get("total")]
+    return float(rows[-1]["total"]) if rows else None
+
+
+def _notify_status(pr, prev: float | None) -> None:
+    """Send a Telegram status line every sample — even when nothing changed."""
+    from app import notifications  # local import: only needed in --notify mode
+
+    cur = float(pr.price)
+    if prev is None:
+        change = "דגימה ראשונה"
+    elif cur == prev:
+        change = "ללא שינוי ✓"
+    else:
+        d = cur - prev
+        change = f"{'📈 ↑' if d > 0 else '📉 ↓'}{abs(d):.0f}{pr.currency[:1] or '$'} מאז הבדיקה הקודמת"
+    lines = [
+        "📊 <b>בדיקת מחיר תקופתית</b>",
+        f"🏨 {pr.hotel_name or 'ההצעה במעקב'}",
+        f"💰 {cur:.0f} {pr.currency}  ({change})",
+    ]
+    notifications._send_telegram("\n".join(lines))
+
+
+async def sample(url: str, notify: bool = False) -> None:
     parsed = parse_url(url)
     if parsed.provider != "holidayfinder":
         raise SystemExit(f"Not a HolidayFinder URL (detected: {parsed.provider}).")
     pr = await HolidayFinderAdapter().fetch_current_price(parsed)
+    prev_total = _last_total()  # capture BEFORE appending the new row
     row = {
         "ts_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "total": f"{pr.price}",
@@ -60,6 +89,8 @@ async def sample(url: str) -> None:
         w.writerow(row)
     print(f"{row['ts_utc']}  total={pr.currency} {pr.price}  "
           f"(hotel {pr.hotel_portion} / flight {pr.flight_portion})  -> {CSV_PATH.name}")
+    if notify:
+        _notify_status(pr, prev_total)
 
 
 def analyze() -> None:
@@ -119,11 +150,13 @@ async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("url", nargs="?", help="HolidayFinder offer URL (sample mode)")
     ap.add_argument("--analyze", action="store_true", help="report movement from the CSV")
+    ap.add_argument("--notify", action="store_true",
+                    help="send a Telegram status line every sample, even with no change")
     args = ap.parse_args()
     if args.analyze:
         analyze()
     elif args.url:
-        await sample(args.url)
+        await sample(args.url, notify=args.notify)
     else:
         ap.error("provide a HolidayFinder URL to sample, or --analyze")
 

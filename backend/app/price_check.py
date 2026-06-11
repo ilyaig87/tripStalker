@@ -70,6 +70,8 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
     item.flight_details = result.flight_details
     if result.destination_city:
         item.destination_city = result.destination_city
+    if result.hotel_url:
+        item.hotel_url = result.hotel_url
     if item.destination_city and not item.destination_photo_url:
         item.destination_photo_url = await _fetch_destination_photo(item.destination_city)
 

@@ -34,6 +34,7 @@ class TrackOut(BaseModel):
     room_config: str | None
     target_hotel_id_or_name: str | None
     hotel_name: str | None
+    hotel_url: str | None = None
     destination_city: str | None = None
     destination_photo_url: str | None = None
     initial_price: Decimal | None

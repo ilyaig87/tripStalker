@@ -114,69 +114,71 @@ class TravelistAdapter(BaseProviderAdapter):
         raise ProviderError("Travelist returned no flight results in time")
 
     async def find_cheaper_alternative(self, parsed: ParsedUrl, current_price: Decimal) -> dict | None:
-        """Cheapest round-trip fare for the same route in the tracked month,
-        via the Travelpayouts (Aviasales) flight-data API. The price is an
-        indicative "from" fare per person, so no savings figure is computed.
-        Best-effort — returns None if not configured or nothing found.
+        """Cheapest LIVE round-trip flight for the SAME route + EXACT dates, via the
+        RapidAPI Booking flight search (real availability — Travelpayouts' cache is
+        too sparse). Price is the total for the same occupancy, so it's directly
+        comparable to the tracked total. Includes an Aviasales affiliate link.
+        Best-effort — None if not configured or nothing found.
         """
-        token = settings.travelpayouts_token
-        if not (token and parsed.check_in_date):
+        if not (settings.rapidapi_key and parsed.check_in_date and parsed.check_out_date):
             return None
-        segments = self._segments(parse_qs(urlparse(parsed.raw_url).query))
+        qs = parse_qs(urlparse(parsed.raw_url).query)
+        segments = self._segments(qs)
         if not segments:
             return None
         origin, dest = segments[0].get("from"), segments[0].get("to")
         if not (origin and dest):
             return None
 
-        month = parsed.check_in_date.strftime("%Y-%m")
+        def q(key: str, default: str) -> str:
+            return qs[key][0] if qs.get(key) else default
+
+        host = settings.rapidapi_host
         params = {
-            "origin": origin,
-            "destination": dest,
-            "departure_at": month,
-            "return_at": month,
-            "one_way": "false",
-            "unique": "true",
-            "sorting": "price",
-            "limit": "1",
-            "currency": "usd",
-            "token": token,
+            "from_code": f"{origin}.AIRPORT",
+            "to_code": f"{dest}.AIRPORT",
+            "depart_date": str(parsed.check_in_date),
+            "return_date": str(parsed.check_out_date),
+            "flight_type": "ROUNDTRIP",
+            "cabin_class": "ECONOMY",
+            "order_by": "BEST",
+            "adults": q("adults", "1"),
+            "children": q("children", "0"),
+            "locale": "en-gb",
+            "currency": "USD",
         }
         try:
             data = await get_json(
-                "https://api.travelpayouts.com/aviasales/v3/prices_for_dates",
+                f"https://{host}/v1/flights/search",
                 params=params,
+                headers={"X-RapidAPI-Key": settings.rapidapi_key, "X-RapidAPI-Host": host},
                 proxy=settings.proxy_url or None,
             )
         except (httpx.HTTPError, ValueError):
             return None
 
-        rows = (data or {}).get("data") or []
-        if not rows:
+        offers = (data or {}).get("flightOffers") or []
+        if not offers:
             return None
-        best = rows[0]
-        price = best.get("price")
-        if price is None:
+        cheapest = min(offers, key=_offer_price)
+        price = _offer_price(cheapest)
+        if not price:
             return None
 
-        link = best.get("link") or f"/search/{origin}{dest}1"
-        url = f"https://www.aviasales.com{link}"
+        segs = cheapest.get("segments") or []
+        dd = parsed.check_in_date.strftime("%d%m")
+        rr = parsed.check_out_date.strftime("%d%m")
+        url = f"https://www.aviasales.com/search/{origin}{dd}{dest}{rr}{q('adults', '1')}"
         if settings.travelpayouts_marker:
-            url += f"{'&' if '?' in url else '?'}marker={settings.travelpayouts_marker}"
+            url += f"?marker={settings.travelpayouts_marker}"
         return {
-            "price": price,
-            "check_in": (best.get("departure_at") or "")[:10] or None,
-            "check_out": (best.get("return_at") or "")[:10] or None,
+            "price": round(price, 2),
+            "check_in": str(parsed.check_in_date),
+            "check_out": str(parsed.check_out_date),
             "url": url,
-            "savings": None,  # indicative per-person "from" fare — not directly comparable
             "details": {
-                "airline": best.get("airline"),
-                "transfers": best.get("transfers"),
-                "return_transfers": best.get("return_transfers"),
-                "departure_at": best.get("departure_at"),
-                "return_at": best.get("return_at"),
-                "duration_to": best.get("duration_to"),
-                "duration_back": best.get("duration_back"),
+                "out": _rapid_flight_leg(segs[0]) if len(segs) >= 1 else None,
+                "back": _rapid_flight_leg(segs[1]) if len(segs) >= 2 else None,
             },
         }
 
@@ -199,3 +201,26 @@ class TravelistAdapter(BaseProviderAdapter):
             hotel_name=f"✈️ {label}",
             raw={"cheapest_usd": cheapest, "products": len(data.get("products") or [])},
         )
+
+
+def _offer_price(offer: dict) -> float:
+    """Total price (units + nanos) of a RapidAPI flight offer."""
+    total = (offer.get("priceBreakdown") or {}).get("total") or {}
+    return float(total.get("units") or 0) + float(total.get("nanos") or 0) / 1e9
+
+
+def _rapid_flight_leg(segment: dict) -> dict | None:
+    """One leg (date, airline, takeoff/landing hour, stops) from a RapidAPI segment."""
+    legs = segment.get("legs") or []
+    if not legs:
+        return None
+    dep = segment.get("departureTime") or ""   # "2026-09-15T14:00:00"
+    arr = segment.get("arrivalTime") or ""
+    carrier = ((legs[0].get("carriersData") or [{}])[0] or {}).get("name")
+    return {
+        "date": f"{dep[8:10]}/{dep[5:7]}" if len(dep) >= 10 else None,
+        "airline": carrier,
+        "dep": dep[11:16] or None,
+        "arr": arr[11:16] or None,
+        "stops": max(0, len(legs) - 1),
+    }

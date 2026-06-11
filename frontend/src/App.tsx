@@ -105,49 +105,6 @@ function signed(n: number, currency: string) {
   return `${s}${sym(currency)}${Math.abs(Math.round(n)).toLocaleString()}`;
 }
 
-const AIRLINES: Record<string, string> = {
-  LY: "אל על",
-  "6H": "ישראייר",
-  IZ: "ארקיע",
-  W6: "Wizz Air",
-  FR: "Ryanair",
-  U2: "easyJet",
-  A3: "Aegean",
-  TK: "Turkish",
-  H4: "HiSky",
-  BA: "British Airways",
-  AF: "Air France",
-  LH: "Lufthansa",
-};
-
-type FlightLeg = { date: string; dep: string; arr: string; direct: boolean };
-type FlightInfo = { airline: string | null; out: FlightLeg | null; back: FlightLeg | null };
-
-// Build one leg from an ISO like "2026-09-14T21:15:00+03:00" using the wall-clock
-// time as given (no browser-timezone conversion); arrival = departure + duration.
-function leg(iso: string | undefined, durMin: number | undefined, transfers: number): FlightLeg | null {
-  if (!iso || iso.length < 16) return null;
-  const date = `${iso.slice(8, 10)}.${iso.slice(5, 7)}`;
-  const depMin = +iso.slice(11, 13) * 60 + +iso.slice(14, 16);
-  const arrMin = (depMin + (durMin || 0)) % 1440;
-  const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-  return { date, dep: fmt(depMin), arr: fmt(arrMin), direct: transfers === 0 };
-}
-
-function flightInfo(jsonStr: string | null): FlightInfo | null {
-  if (!jsonStr) return null;
-  try {
-    const d = JSON.parse(jsonStr);
-    return {
-      airline: d.airline ? AIRLINES[d.airline] || d.airline : null,
-      out: leg(d.departure_at, d.duration_to, d.transfers ?? 0),
-      back: leg(d.return_at, d.duration_back, d.return_transfers ?? d.transfers ?? 0),
-    };
-  } catch {
-    return null;
-  }
-}
-
 type PkgLeg = { date?: string; airline?: string; dep?: string; arr?: string; stops?: number };
 
 // Parse the package flight legs (HolidayFinder) stored as JSON.
@@ -638,37 +595,48 @@ export default function App() {
                     <div className="checked-at">🕐 {lastChecked(t.last_checked_at)}</div>
                   </div>
 
-                  <a className="offer-link" href={t.raw_url} target="_blank" rel="noreferrer">
-                    פתחו את ההצעה
-                    <span aria-hidden>↗</span>
-                  </a>
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    {t.hotel_url && (
+                      <a className="offer-link offer-link--alt" href={t.hotel_url} target="_blank" rel="noreferrer">
+                        🏨 מחיר באתר המלון
+                        <span aria-hidden>↗</span>
+                      </a>
+                    )}
+                    <a className="offer-link" href={t.raw_url} target="_blank" rel="noreferrer">
+                      פתחו את ההצעה
+                      <span aria-hidden>↗</span>
+                    </a>
+                  </div>
                 </div>
 
                 {t.alt_price && t.provider === "travelist" && (
                   <a className="alt-suggest" href={t.alt_url ?? t.raw_url} target="_blank" rel="noreferrer">
                     <div>
-                      💡 הטיסה הזולה ביותר החודש ב-<b>{dm(t.alt_check_in)}–{dm(t.alt_check_out)}</b>:{" "}
-                      <b>מ-{money(t.alt_price, t.currency)} לאדם</b>
+                      💡 טיסה מסחרית לתאריכים שלך: <b>{money(t.alt_price, t.currency)}</b>
+                      {t.current_price && Number(t.current_price) > Number(t.alt_price) && (
+                        <span className="alt-save">
+                          {" "}
+                          חיסכון {sym(t.currency)}
+                          {Math.round(Number(t.current_price) - Number(t.alt_price)).toLocaleString()}
+                        </span>
+                      )}
                       <span aria-hidden> ↗</span>
                     </div>
                     {(() => {
-                      const f = flightInfo(t.alt_details);
-                      if (!f) return null;
+                      const pf = packageFlight(t.alt_details);
+                      if (!pf) return null;
+                      const line = (l: PkgLeg | null, icon: string, label: string) =>
+                        l && l.dep ? (
+                          <span>
+                            {icon} {label} {l.date} · {l.airline ? `${l.airline} · ` : ""}
+                            {l.dep}→{l.arr}
+                            {l.stops === 0 ? " · ישיר" : l.stops ? ` · ${l.stops} עצירות` : ""}
+                          </span>
+                        ) : null;
                       return (
                         <div className="alt-flight">
-                          {f.airline && <span className="alt-airline">✈️ {f.airline}</span>}
-                          {f.out && (
-                            <span>
-                              🛫 הלוך {f.out.date} · {f.out.dep}→{f.out.arr}
-                              {f.out.direct ? " · ישיר" : ""}
-                            </span>
-                          )}
-                          {f.back && (
-                            <span>
-                              🛬 חזור {f.back.date} · {f.back.dep}→{f.back.arr}
-                              {f.back.direct ? " · ישיר" : ""}
-                            </span>
-                          )}
+                          {line(pf.out, "🛫", "הלוך")}
+                          {line(pf.back, "🛬", "חזור")}
                         </div>
                       );
                     })()}
@@ -707,7 +675,12 @@ export default function App() {
                               <div className="history-row" key={i}>
                                 <div className="history-main">
                                   <span className="history-date">
-                                    {new Date(e.date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}
+                                    {new Date(e.date).toLocaleString("he-IL", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
                                   </span>
                                   <span className="history-price tnum">{money(String(e.price), t.currency)}</span>
                                   {e.delta !== null && e.delta !== 0 && (

@@ -59,6 +59,7 @@ class TrackedItem(Base):
     room_config: Mapped[str | None] = mapped_column(String(100))  # e.g. "2-adults,1-child"
     target_hotel_id_or_name: Mapped[str | None] = mapped_column(String(255))
     hotel_name: Mapped[str | None] = mapped_column(String(255))  # resolved display name from the adapter
+    hotel_url: Mapped[str | None] = mapped_column(String(500))  # hotel's own site (direct-check link)
     destination_city: Mapped[str | None] = mapped_column(String(120))  # resolved city, for weather
     destination_photo_url: Mapped[str | None] = mapped_column(String(500))  # Unsplash banner
 

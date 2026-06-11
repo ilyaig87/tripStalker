@@ -120,10 +120,12 @@ class HolidayFinderAdapter(BaseProviderAdapter):
         legs = {"out": _hf_flight_leg(cfd), "back": _hf_flight_leg(cfd.get("default_inbound") or {})}
         flight_details = json.dumps(legs) if (legs["out"] or legs["back"]) else None
 
+        hotel_url = (rate.get("hotel") or {}).get("hotelWebsiteUrl") or None
         return PriceResult(
             price=Decimal(str(final)).quantize(Decimal("1.00")),
             currency="USD",  # the site quotes packages in USD
             hotel_name=hotel,
+            hotel_url=hotel_url,
             destination_city=dest_city,
             hotel_portion=hotel_portion,
             flight_portion=flight_portion,

@@ -6,4 +6,4 @@ cd /Users/ilya/PhpstormProjects/TripStalker/backend || exit 1
 
 URL='https://www.holidayfinder.co.il/offer/6606726?bc=m4d32h6606726c21o150926i200926st1:withCib:AI&adult=2&child=%5B2%5D&airports%5B%5D=TLV&position=0'
 
-.venv/bin/python scripts/price_volatility.py "$URL"
+.venv/bin/python scripts/price_volatility.py "$URL" --notify

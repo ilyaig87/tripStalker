@@ -649,6 +649,14 @@ body::before {
   background: #d3e4e0;
   transform: translateY(-1px);
 }
+.offer-link--alt {
+  background: var(--cream-deep);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+.offer-link--alt:hover {
+  background: var(--line);
+}
 
 .delete-btn {
   border: 0;
