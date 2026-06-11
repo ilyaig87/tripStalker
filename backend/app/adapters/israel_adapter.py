@@ -113,6 +113,64 @@ class TravelistAdapter(BaseProviderAdapter):
             return last
         raise ProviderError("Travelist returned no flight results in time")
 
+    async def find_cheaper_alternative(self, parsed: ParsedUrl, current_price: Decimal) -> dict | None:
+        """Cheapest round-trip fare for the same route in the tracked month,
+        via the Travelpayouts (Aviasales) flight-data API. The price is an
+        indicative "from" fare per person, so no savings figure is computed.
+        Best-effort — returns None if not configured or nothing found.
+        """
+        token = settings.travelpayouts_token
+        if not (token and parsed.check_in_date):
+            return None
+        segments = self._segments(parse_qs(urlparse(parsed.raw_url).query))
+        if not segments:
+            return None
+        origin, dest = segments[0].get("from"), segments[0].get("to")
+        if not (origin and dest):
+            return None
+
+        month = parsed.check_in_date.strftime("%Y-%m")
+        params = {
+            "origin": origin,
+            "destination": dest,
+            "departure_at": month,
+            "return_at": month,
+            "one_way": "false",
+            "unique": "true",
+            "sorting": "price",
+            "limit": "1",
+            "currency": "usd",
+            "token": token,
+        }
+        try:
+            data = await get_json(
+                "https://api.travelpayouts.com/aviasales/v3/prices_for_dates",
+                params=params,
+                proxy=settings.proxy_url or None,
+            )
+        except (httpx.HTTPError, ValueError):
+            return None
+
+        rows = (data or {}).get("data") or []
+        if not rows:
+            return None
+        best = rows[0]
+        price = best.get("price")
+        if price is None:
+            return None
+
+        link = best.get("link") or f"/search/{origin}{dest}1"
+        url = f"https://www.aviasales.com{link}"
+        if settings.travelpayouts_marker:
+            url += f"{'&' if '?' in url else '?'}marker={settings.travelpayouts_marker}"
+        return {
+            "price": price,
+            "check_in": (best.get("departure_at") or "")[:10] or None,
+            "check_out": (best.get("return_at") or "")[:10] or None,
+            "url": url,
+            "savings": None,  # indicative per-person "from" fare — not directly comparable
+        }
+
     def _extract_price(self, data: dict, parsed: ParsedUrl) -> PriceResult:
         prices = []
         for product in data.get("products") or []:

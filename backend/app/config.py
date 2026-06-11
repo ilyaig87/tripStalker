@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     rapidapi_key: str = ""
     rapidapi_host: str = "booking-com.p.rapidapi.com"
     travelpayouts_token: str = ""
+    travelpayouts_marker: str = ""  # affiliate id, used in flight deeplinks
 
     # --- Israel adapter (Travelist) ---
     # Optional residential proxy used to bypass WAF (e.g. http://user:pass@gateway:port)

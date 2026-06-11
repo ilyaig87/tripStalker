@@ -497,7 +497,14 @@ export default function App() {
                   </a>
                 </div>
 
-                {t.alt_price && (
+                {t.alt_price && t.provider === "travelist" && (
+                  <a className="alt-suggest" href={t.alt_url ?? t.raw_url} target="_blank" rel="noreferrer">
+                    💡 הטיסה הזולה ביותר החודש ב-<b>{dm(t.alt_check_in)}–{dm(t.alt_check_out)}</b>:{" "}
+                    <b>מ-{money(t.alt_price, t.currency)} לאדם</b>
+                    <span aria-hidden> ↗</span>
+                  </a>
+                )}
+                {t.alt_price && t.provider !== "travelist" && (
                   <a className="alt-suggest" href={t.alt_url ?? t.raw_url} target="_blank" rel="noreferrer">
                     💡 אותו מלון זול יותר ב-<b>{dm(t.alt_check_in)}–{dm(t.alt_check_out)}</b>:{" "}
                     <b>{money(t.alt_price, t.currency)}</b>
