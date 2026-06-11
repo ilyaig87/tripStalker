@@ -17,6 +17,8 @@ class TrackCreate(BaseModel):
 class PriceHistoryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     price: Decimal
+    hotel_portion: Decimal | None = None
+    flight_portion: Decimal | None = None
     checked_at: datetime
 
 

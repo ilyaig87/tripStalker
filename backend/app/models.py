@@ -103,6 +103,10 @@ class PriceHistory(Base):
         ForeignKey("tracked_items.id", ondelete="CASCADE"), index=True
     )
     price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    # Snapshot of the package breakdown at this point in time (HolidayFinder),
+    # so we can show what drove a change (hotel vs flight).
+    hotel_portion: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    flight_portion: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     tracked_item: Mapped[TrackedItem] = relationship(back_populates="price_history")

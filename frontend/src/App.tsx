@@ -71,18 +71,38 @@ function lastChecked(iso: string | null) {
   return `נבדק לפני ${Math.round(hr / 24)} י׳`;
 }
 
-// Keep only the points where the price changed (+ the first), with the delta.
+// Keep only the points where the price changed (+ the first). For each change,
+// also work out how much came from the hotel vs the flight (when known).
 function changeLog(points: PriceHistoryPoint[]) {
-  const out: { date: string; price: number; delta: number | null }[] = [];
-  let prev: number | null = null;
+  const out: {
+    date: string;
+    price: number;
+    delta: number | null;
+    hotelDelta: number | null;
+    flightDelta: number | null;
+  }[] = [];
+  let prev: PriceHistoryPoint | null = null;
   for (const p of points) {
     const v = Number(p.price);
-    if (prev === null || v !== prev) {
-      out.push({ date: p.checked_at, price: v, delta: prev === null ? null : v - prev });
-      prev = v;
+    if (prev === null || v !== Number(prev.price)) {
+      const portionDelta = (cur: string | null, before: string | null) =>
+        cur != null && before != null ? Number(cur) - Number(before) : null;
+      out.push({
+        date: p.checked_at,
+        price: v,
+        delta: prev === null ? null : v - Number(prev.price),
+        hotelDelta: prev ? portionDelta(p.hotel_portion, prev.hotel_portion) : null,
+        flightDelta: prev ? portionDelta(p.flight_portion, prev.flight_portion) : null,
+      });
+      prev = p;
     }
   }
   return out;
+}
+
+function signed(n: number, currency: string) {
+  const s = n > 0 ? "+" : n < 0 ? "−" : "";
+  return `${s}${sym(currency)}${Math.abs(Math.round(n)).toLocaleString()}`;
 }
 
 function Sparkline({ points }: { points: PriceHistoryPoint[] }) {
@@ -508,15 +528,23 @@ export default function App() {
                             .reverse()
                             .map((e, i) => (
                               <div className="history-row" key={i}>
-                                <span className="history-date">
-                                  {new Date(e.date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}
-                                </span>
-                                <span className="history-price tnum">{money(String(e.price), t.currency)}</span>
-                                {e.delta !== null && e.delta !== 0 && (
-                                  <span className={`delta delta--${e.delta < 0 ? "down" : "up"} tnum`}>
-                                    {e.delta < 0 ? "▼" : "▲"} {sym(t.currency)}
-                                    {Math.abs(Math.round(e.delta)).toLocaleString()}
+                                <div className="history-main">
+                                  <span className="history-date">
+                                    {new Date(e.date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}
                                   </span>
+                                  <span className="history-price tnum">{money(String(e.price), t.currency)}</span>
+                                  {e.delta !== null && e.delta !== 0 && (
+                                    <span className={`delta delta--${e.delta < 0 ? "down" : "up"} tnum`}>
+                                      {e.delta < 0 ? "▼" : "▲"} {sym(t.currency)}
+                                      {Math.abs(Math.round(e.delta)).toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
+                                {(!!e.hotelDelta || !!e.flightDelta) && (
+                                  <div className="history-why tnum">
+                                    {!!e.hotelDelta && <span>🏨 {signed(e.hotelDelta, t.currency)}</span>}
+                                    {!!e.flightDelta && <span>✈️ {signed(e.flightDelta, t.currency)}</span>}
+                                  </div>
                                 )}
                               </div>
                             ))}

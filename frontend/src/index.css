@@ -671,9 +671,16 @@ body::before {
 }
 .history-row {
   display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.86rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line);
+}
+.history-main {
+  display: flex;
   align-items: center;
   gap: 0.7rem;
-  font-size: 0.86rem;
 }
 .history-date {
   color: var(--ink-faint);
@@ -682,6 +689,14 @@ body::before {
 .history-price {
   font-weight: 700;
   min-width: 4.5rem;
+}
+.history-why {
+  display: flex;
+  gap: 0.9rem;
+  padding-inline-start: 3.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 
 .alt-suggest {

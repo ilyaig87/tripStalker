@@ -66,7 +66,7 @@ async def check_one(db: Session, item: TrackedItem) -> dict | None:
     item.flight_portion = result.flight_portion
 
     baseline: Decimal = item.current_price or item.initial_price or result.price
-    record_price(db, item, result.price)
+    record_price(db, item, result.price, result.hotel_portion, result.flight_portion)
     logger.info("Track %s: %s -> %s %s", item.id, baseline, result.price, result.currency)
 
     # Cheaper same-hotel/same-nights alternative on other dates (best-effort).

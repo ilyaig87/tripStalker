@@ -41,20 +41,28 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-# Columns added after the first release. We add them on startup so existing
-# databases (local SQLite, the live Neon Postgres) pick them up without Alembic.
+# Columns added after the first release, per table. We add them on startup so
+# existing databases (local SQLite, the live Neon Postgres) pick them up without
+# Alembic.
+_NUM = {"sqlite": "NUMERIC(12,2)", "postgresql": "NUMERIC(12,2)"}
 _ADDED_COLUMNS = {
-    "hotel_name": {"sqlite": "VARCHAR(255)", "postgresql": "VARCHAR(255)"},
-    "available": {"sqlite": "BOOLEAN DEFAULT 1", "postgresql": "BOOLEAN DEFAULT TRUE"},
-    "failed_checks": {"sqlite": "INTEGER DEFAULT 0", "postgresql": "INTEGER DEFAULT 0"},
-    "last_error": {"sqlite": "VARCHAR(500)", "postgresql": "VARCHAR(500)"},
-    "last_checked_at": {"sqlite": "TIMESTAMP", "postgresql": "TIMESTAMPTZ"},
-    "alt_price": {"sqlite": "NUMERIC(12,2)", "postgresql": "NUMERIC(12,2)"},
-    "alt_check_in": {"sqlite": "DATE", "postgresql": "DATE"},
-    "alt_check_out": {"sqlite": "DATE", "postgresql": "DATE"},
-    "alt_url": {"sqlite": "VARCHAR(1000)", "postgresql": "VARCHAR(1000)"},
-    "hotel_portion": {"sqlite": "NUMERIC(12,2)", "postgresql": "NUMERIC(12,2)"},
-    "flight_portion": {"sqlite": "NUMERIC(12,2)", "postgresql": "NUMERIC(12,2)"},
+    "tracked_items": {
+        "hotel_name": {"sqlite": "VARCHAR(255)", "postgresql": "VARCHAR(255)"},
+        "available": {"sqlite": "BOOLEAN DEFAULT 1", "postgresql": "BOOLEAN DEFAULT TRUE"},
+        "failed_checks": {"sqlite": "INTEGER DEFAULT 0", "postgresql": "INTEGER DEFAULT 0"},
+        "last_error": {"sqlite": "VARCHAR(500)", "postgresql": "VARCHAR(500)"},
+        "last_checked_at": {"sqlite": "TIMESTAMP", "postgresql": "TIMESTAMPTZ"},
+        "alt_price": _NUM,
+        "alt_check_in": {"sqlite": "DATE", "postgresql": "DATE"},
+        "alt_check_out": {"sqlite": "DATE", "postgresql": "DATE"},
+        "alt_url": {"sqlite": "VARCHAR(1000)", "postgresql": "VARCHAR(1000)"},
+        "hotel_portion": _NUM,
+        "flight_portion": _NUM,
+    },
+    "price_history": {
+        "hotel_portion": _NUM,
+        "flight_portion": _NUM,
+    },
 }
 
 
@@ -64,21 +72,23 @@ def _ensure_columns() -> None:
 
     dialect = engine.dialect.name  # 'sqlite' or 'postgresql'
     with engine.begin() as conn:
-        if dialect == "sqlite":
-            existing = {r[1] for r in conn.execute(text("PRAGMA table_info(tracked_items)"))}
-        else:
-            existing = {
-                r[0]
-                for r in conn.execute(
-                    text(
-                        "SELECT column_name FROM information_schema.columns "
-                        "WHERE table_name = 'tracked_items'"
+        for table, cols in _ADDED_COLUMNS.items():
+            if dialect == "sqlite":
+                existing = {r[1] for r in conn.execute(text(f"PRAGMA table_info({table})"))}
+            else:
+                existing = {
+                    r[0]
+                    for r in conn.execute(
+                        text(
+                            "SELECT column_name FROM information_schema.columns "
+                            "WHERE table_name = :t"
+                        ),
+                        {"t": table},
                     )
-                )
-            }
-        for col, ddl in _ADDED_COLUMNS.items():
-            if col not in existing and dialect in ddl:
-                conn.execute(text(f"ALTER TABLE tracked_items ADD COLUMN {col} {ddl[dialect]}"))
+                }
+            for col, ddl in cols.items():
+                if col not in existing and dialect in ddl:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl[dialect]}"))
 
 
 def init_db() -> None:

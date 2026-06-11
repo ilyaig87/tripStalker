@@ -60,6 +60,8 @@ export function deleteTrack(id: number): Promise<void> {
 
 export interface PriceHistoryPoint {
   price: string;
+  hotel_portion: string | null;
+  flight_portion: string | null;
   checked_at: string;
 }
 

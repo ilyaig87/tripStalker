@@ -51,7 +51,14 @@ def create_track(
     db.add(item)
     db.flush()
     if initial_price is not None:
-        db.add(PriceHistory(tracked_item_id=item.id, price=initial_price))
+        db.add(
+            PriceHistory(
+                tracked_item_id=item.id,
+                price=initial_price,
+                hotel_portion=hotel_portion,
+                flight_portion=flight_portion,
+            )
+        )
     db.commit()
     db.refresh(item)
     return item
@@ -106,7 +113,20 @@ def get_active_tracks(db: Session) -> list[TrackedItem]:
     return list(db.scalars(select(TrackedItem).where(TrackedItem.status == TrackStatus.ACTIVE)))
 
 
-def record_price(db: Session, item: TrackedItem, price: Decimal) -> None:
-    db.add(PriceHistory(tracked_item_id=item.id, price=price))
+def record_price(
+    db: Session,
+    item: TrackedItem,
+    price: Decimal,
+    hotel_portion: Decimal | None = None,
+    flight_portion: Decimal | None = None,
+) -> None:
+    db.add(
+        PriceHistory(
+            tracked_item_id=item.id,
+            price=price,
+            hotel_portion=hotel_portion,
+            flight_portion=flight_portion,
+        )
+    )
     item.current_price = price
     db.commit()
