@@ -4,6 +4,7 @@ the two entry points can never drift apart.
 """
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -109,6 +110,7 @@ async def _store_alternative(db: Session, item: TrackedItem, adapter, current_pr
     item.alt_check_in = date.fromisoformat(alt["check_in"]) if alt and alt.get("check_in") else None
     item.alt_check_out = date.fromisoformat(alt["check_out"]) if alt and alt.get("check_out") else None
     item.alt_url = alt.get("url") if alt else None
+    item.alt_details = json.dumps(alt["details"]) if alt and alt.get("details") else None
     db.commit()
     return alt
 

@@ -105,6 +105,40 @@ function signed(n: number, currency: string) {
   return `${s}${sym(currency)}${Math.abs(Math.round(n)).toLocaleString()}`;
 }
 
+const AIRLINES: Record<string, string> = {
+  LY: "אל על",
+  "6H": "ישראייר",
+  IZ: "ארקיע",
+  W6: "Wizz Air",
+  FR: "Ryanair",
+  U2: "easyJet",
+  A3: "Aegean",
+  TK: "Turkish",
+  H4: "HiSky",
+  BA: "British Airways",
+  AF: "Air France",
+  LH: "Lufthansa",
+};
+
+// Format the stored flight JSON into "אל על · ישיר · 1ש׳ 25ד׳".
+function flightInfo(jsonStr: string | null): string | null {
+  if (!jsonStr) return null;
+  try {
+    const d = JSON.parse(jsonStr);
+    const parts: string[] = [];
+    if (d.airline) parts.push(AIRLINES[d.airline] || d.airline);
+    if (d.transfers != null) parts.push(d.transfers === 0 ? "ישיר" : `${d.transfers} עצירות`);
+    if (d.duration) {
+      const h = Math.floor(d.duration / 60);
+      const m = d.duration % 60;
+      parts.push(`${h}ש׳${m ? ` ${m}ד׳` : ""}`);
+    }
+    return parts.join(" · ") || null;
+  } catch {
+    return null;
+  }
+}
+
 type Weather = { tmax: number; tmin: number };
 
 // Typical weather at a destination for the travel month — open-meteo, keyless.
@@ -566,9 +600,12 @@ export default function App() {
 
                 {t.alt_price && t.provider === "travelist" && (
                   <a className="alt-suggest" href={t.alt_url ?? t.raw_url} target="_blank" rel="noreferrer">
-                    💡 הטיסה הזולה ביותר החודש ב-<b>{dm(t.alt_check_in)}–{dm(t.alt_check_out)}</b>:{" "}
-                    <b>מ-{money(t.alt_price, t.currency)} לאדם</b>
-                    <span aria-hidden> ↗</span>
+                    <div>
+                      💡 הטיסה הזולה ביותר החודש ב-<b>{dm(t.alt_check_in)}–{dm(t.alt_check_out)}</b>:{" "}
+                      <b>מ-{money(t.alt_price, t.currency)} לאדם</b>
+                      <span aria-hidden> ↗</span>
+                    </div>
+                    {flightInfo(t.alt_details) && <div className="alt-flight">✈️ {flightInfo(t.alt_details)}</div>}
                   </a>
                 )}
                 {t.alt_price && t.provider !== "travelist" && (

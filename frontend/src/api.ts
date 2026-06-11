@@ -26,6 +26,7 @@ export interface Track {
   alt_check_in: string | null;
   alt_check_out: string | null;
   alt_url: string | null;
+  alt_details: string | null;
   hotel_portion: string | null;
   flight_portion: string | null;
   created_at: string;

@@ -169,6 +169,12 @@ class TravelistAdapter(BaseProviderAdapter):
             "check_out": (best.get("return_at") or "")[:10] or None,
             "url": url,
             "savings": None,  # indicative per-person "from" fare — not directly comparable
+            "details": {
+                "airline": best.get("airline"),
+                "transfers": best.get("transfers"),
+                "departure_at": best.get("departure_at"),
+                "duration": best.get("duration"),
+            },
         }
 
     def _extract_price(self, data: dict, parsed: ParsedUrl) -> PriceResult:

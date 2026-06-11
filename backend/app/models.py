@@ -85,6 +85,7 @@ class TrackedItem(Base):
     alt_check_in: Mapped[date | None] = mapped_column()
     alt_check_out: Mapped[date | None] = mapped_column()
     alt_url: Mapped[str | None] = mapped_column(String(1000))
+    alt_details: Mapped[str | None] = mapped_column(String(500))  # JSON: flight info (airline, stops…)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

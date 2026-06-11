@@ -197,6 +197,10 @@ async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("url")
     ap.add_argument("--hotel-key", help="TripAdvisor id, e.g. g190384-d236327 (from the hotel's TripAdvisor URL)")
+    ap.add_argument("--separate-board", default="RO", metavar="CODE",
+                    help="board the SEPARATE hotel price represents (default RO=room-only). "
+                         "Set to AI/HB/FB/BB when you KNOW the hotel only sells that board (e.g. an "
+                         "all-inclusive-only resort) — then the comparison is treated as like-for-like.")
     ap.add_argument("--dump", action="store_true")
     args = ap.parse_args()
 
@@ -248,26 +252,41 @@ async def main():
     else:
         flight_res = {"error": "missing route/dates"}
 
+    # Board comparability: the separate hotel price is on `sep_board` (declared,
+    # default room-only); the package is on `board_code`. We only call a winner
+    # when both sides represent the same board.
+    sep_board = (args.separate_board or "RO").upper()
+    sep_board_label = _BOARD.get(sep_board, sep_board)
+    hotel_comparable = (board_code == sep_board)
+
     # 4) Side-by-side.
     print("\n" + "=" * 70)
     print(f"  {'':<22}{'PACKAGE':>11}{'SEPARATE':>14}   DIFF (separate − package)")
+    print(f"  {'board basis →':<22}{board_label:>11}{sep_board_label:>14}")
     print("  " + "-" * 68)
     sep_hotel = hotel_res.get("price")
-    row("Hotel", pkg_hotel, sep_hotel, note=hotel_res.get("error", ""))
+    row("Hotel", pkg_hotel, sep_hotel, note=hotel_res.get("error", ""), comparable=hotel_comparable)
     sep_flight = flight_res.get("price")
     row("Flight (round-trip)", pkg_flight, sep_flight, note=flight_res.get("error", ""))
     print("  " + "-" * 68)
+    # A total verdict is only honest when the hotel boards match AND we have a flight.
     sep_total = (sep_hotel + sep_flight) if (sep_hotel and sep_flight) else None
-    row("TOTAL", pkg_total, sep_total, note="(need both legs priced)" if not sep_total else "")
+    row("TOTAL", pkg_total, sep_total,
+        note="(need both legs priced)" if not sep_total else "", comparable=hotel_comparable)
     print("=" * 70)
 
     # 5) Honesty footnotes — the two traps.
     notes = []
-    if board_code in _MEAL_INCLUSIVE:
+    if not hotel_comparable and board_code in _MEAL_INCLUSIVE:
         notes.append(
-            f"⚠ Board mismatch: the package hotel is {board_label} (food/drinks included for everyone), "
-            f"but Xotelo quotes ROOM-ONLY. The package hotel column is NOT comparable to the separate "
-            f"hotel price — the gap is mostly meals, not markup.")
+            f"⚠ Board mismatch: the package is {board_label} but the separate price is {sep_board_label}. "
+            f"Xotelo does NOT disclose board, so its lead-in rate is assumed room-only. The gap on the "
+            f"Hotel line is mostly MEALS, not markup — no winner is declared. If this hotel ONLY sells "
+            f"{board_label} (an all-inclusive-only resort), re-run with --separate-board {board_code} "
+            f"to compare like-for-like.")
+    elif hotel_comparable:
+        notes.append(
+            f"✓ Both sides are on {board_label} — the Hotel line is a like-for-like comparison.")
     if fm["charter"]:
         notes.append(
             "⚠ The flight is CHARTER: it cannot be booked separately and appears on no flight API. "
@@ -276,7 +295,8 @@ async def main():
         notes.append(f"ℹ Hotel price is a PROXY from nearby dates ({hotel_res['proxy']}) — the exact "
                      "dates had no cached rates. Treat as a ballpark.")
     if hotel_res.get("all"):
-        notes.append("Hotel OTA rates (room-only): " + ", ".join(f"{n} {usd(r)}" for n, r in hotel_res["all"]))
+        notes.append(f"Hotel OTA lead-in rates (incl. tax, board undisclosed → assumed {sep_board_label}): "
+                     + ", ".join(f"{n} {usd(r)}" for n, r in hotel_res["all"]))
     notes.append("The PACKAGE hotel/flight columns are the adapter's derived split, not per-leg prices "
                  "HolidayFinder quotes. Only the package TOTAL is exact.")
     print()

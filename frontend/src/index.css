@@ -741,6 +741,12 @@ body::before {
   color: var(--down);
   font-weight: 800;
 }
+.alt-flight {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--teal-deep);
+}
 
 .empty {
   background: var(--paper);
