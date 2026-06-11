@@ -125,6 +125,13 @@ html {
   text-rendering: optimizeLegibility;
 }
 
+/* never allow sideways scroll — the page is a single vertical column */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 body {
   margin: 0;
   background: var(--cream);
@@ -184,6 +191,7 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 .brand {
   display: flex;
@@ -1310,10 +1318,39 @@ a.compare-row:hover {
   }
 }
 @media (max-width: 540px) {
+  /* the account + theme picker drop onto their own full-width row,
+     side by side, so nothing ever pushes past the viewport edge */
   .header-actions {
-    align-items: flex-start;
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-top: 0.4rem;
+  }
+  .account {
+    min-width: 0;
+    flex: 1;
   }
   .account-email {
-    max-width: 60vw;
+    min-width: 0;
+    max-width: none;
+    flex: 1;
+  }
+  .theme-picker {
+    flex-shrink: 0;
+  }
+  /* the price stub stacks above its links instead of squeezing beside them */
+  .foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .foot-links {
+    width: 100%;
+  }
+  .foot-links .offer-link,
+  .foot-links .offer-link--alt {
+    flex: 1;
+    justify-content: center;
   }
 }
